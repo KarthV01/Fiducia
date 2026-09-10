@@ -33,6 +33,7 @@ contract SponsorshipEscrowTest {
         bytes32 termsHash
     );
     event PayoutReleased(bytes32 indexed agreementId, bytes32 indexed payoutId, address indexed creator, uint256 amount);
+    event DeliveryApproved(bytes32 indexed agreementId, bytes32 indexed submissionHash, bytes32 indexed payoutId);
 
     function setUp() public {
         token = new MockUSDC();
@@ -87,6 +88,33 @@ contract SponsorshipEscrowTest {
         assertEq(token.balanceOf(creator), amount);
         assertEq(token.balanceOf(address(escrow)), cap - amount);
         assertTrue(escrow.payoutReleased(agreementId, payoutId));
+    }
+
+    function testApproveDeliveryAnchorsHashAndReleasesPayoutAtomically() public {
+        escrow.createEscrow(agreementId, brand, creator, address(token), cap, termsHash);
+        bytes32 submissionHash = keccak256("submission-v1");
+        uint256 amount = 500_000_000;
+
+        vm.expectEmit(true, true, true, true);
+        emit DeliveryApproved(agreementId, submissionHash, payoutId);
+        escrow.approveDeliveryAndRelease(agreementId, submissionHash, payoutId, amount);
+
+        assertEq(escrow.approvedDeliveryHash(agreementId), submissionHash);
+        assertTrue(escrow.payoutReleased(agreementId, payoutId));
+        assertEq(token.balanceOf(creator), amount);
+    }
+
+    function testCannotApproveTwoDeliverables() public {
+        escrow.createEscrow(agreementId, brand, creator, address(token), cap, termsHash);
+        escrow.approveDeliveryAndRelease(agreementId, keccak256("submission-v1"), payoutId, 500_000_000);
+
+        vm.expectRevert(SponsorshipEscrow.DeliveryAlreadyApproved.selector);
+        escrow.approveDeliveryAndRelease(
+            agreementId,
+            keccak256("submission-v2"),
+            keccak256("payout-2"),
+            500_000_000
+        );
     }
 
     function testCannotReleaseSamePayoutTwice() public {

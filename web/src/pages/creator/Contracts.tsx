@@ -7,10 +7,11 @@ import { Banner, PageHeader, Select } from "../../ui/primitives";
 
 export function CreatorContractsPage() {
   const { creatorId = "" } = useParams();
-  const { data, error, loading } = useResource(`creator-contracts-${creatorId}`, () =>
+  const { data, error, loading, reload } = useResource(`creator-contracts-${creatorId}`, () =>
     api.creatorContracts(creatorId),
   );
   const [status, setStatus] = useState("all");
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const contracts = useMemo(() => {
     if (!data) {
@@ -33,6 +34,7 @@ export function CreatorContractsPage() {
   return (
     <div>
       <PageHeader title="Contracts" description="Sponsorship contracts assigned to this creator." />
+      {actionError ? <div className="mb-4"><Banner>{actionError}</Banner></div> : null}
       <div className="mb-4 max-w-[200px]">
         <Select value={status} onChange={(event) => setStatus(event.target.value)}>
           <option value="all">All statuses</option>
@@ -45,6 +47,15 @@ export function CreatorContractsPage() {
         contracts={contracts}
         counterparty="sponsor"
         hrefFor={(contract) => `/creator/${creatorId}/contracts/${contract.id}`}
+        onAccept={async (inviteId) => {
+          setActionError(null);
+          try {
+            await api.acceptInvite(creatorId, inviteId);
+            reload();
+          } catch (err) {
+            setActionError(err instanceof Error ? err.message : "Could not accept contract");
+          }
+        }}
       />
     </div>
   );

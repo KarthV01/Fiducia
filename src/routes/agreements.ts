@@ -4,7 +4,6 @@ import type { ChainClient } from "../blockchain/client.js";
 import { createAgreementSchema, metricObservationSchema } from "../domain/validation.js";
 import { serviceUnavailable } from "../http/errors.js";
 import {
-  approveDelivery,
   createAgreementFromInput,
   fundAgreementEscrow,
   getAgreement,
@@ -31,11 +30,6 @@ export async function registerAgreementRoutes(app: FastifyInstance, deps: RouteD
   app.post<{ Params: { id: string } }>("/agreements/:id/accept", async (request) => {
     const chain = requireChain(deps.chain);
     return fundAgreementEscrow(prisma, chain, request.params.id);
-  });
-
-  app.post<{ Params: { id: string } }>("/agreements/:id/approve-delivery", async (request) => {
-    const chain = requireChain(deps.chain);
-    return approveDelivery(prisma, chain, request.params.id);
   });
 
   app.post<{ Params: { id: string } }>("/agreements/:id/metrics", async (request) => {

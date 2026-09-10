@@ -39,6 +39,14 @@ export const agreementInclude = {
     },
   },
   blockchainRecord: true,
+  contractInvite: true,
+  deliverableSubmissions: {
+    orderBy: { version: "desc" },
+    include: {
+      evidence: { orderBy: { position: "asc" } },
+      reviews: { orderBy: { reviewedAt: "asc" } },
+    },
+  },
 } satisfies Prisma.AgreementInclude;
 
 export type AgreementView = Prisma.AgreementGetPayload<{
@@ -268,43 +276,6 @@ export async function markPayoutReleased(prisma: PrismaClient, payoutId: string,
       releasedTxHash: txHash,
     },
   });
-}
-
-export async function approveDelivery(
-  prisma: PrismaClient,
-  chain: ChainClient,
-  agreementId: string,
-): Promise<{ releasedPayoutIds: string[]; agreement: AgreementView }> {
-  const agreement = await getAgreement(prisma, agreementId);
-  const basePayout = agreement.payouts.find((payout) => payout.kind === PAYOUT_KIND.base);
-
-  if (!basePayout) {
-    throw notFound("Base payout not found");
-  }
-
-  if (agreement.status === AGREEMENT_STATUS.completed && basePayout.status === PAYOUT_STATUS.released) {
-    return {
-      releasedPayoutIds: [],
-      agreement,
-    };
-  }
-
-  requireActiveAgreement(agreement);
-
-  if (basePayout.status === PAYOUT_STATUS.released) {
-    return {
-      releasedPayoutIds: [],
-      agreement,
-    };
-  }
-
-  await releasePayoutAndMark(prisma, chain, agreement.id, basePayout.id, basePayout.amount);
-  await completeIfCapReached(prisma, agreement.id);
-
-  return {
-    releasedPayoutIds: [basePayout.id],
-    agreement: await getAgreement(prisma, agreement.id),
-  };
 }
 
 export async function recordMetricObservation(

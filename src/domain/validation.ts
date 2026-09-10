@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CONDITION_OPERATOR, PAYOUT_KIND } from "./status.js";
+import { CONDITION_OPERATOR, PAYOUT_KIND, REVIEW_DECISION } from "./status.js";
 
 const positiveIntegerString = z.string().regex(/^[1-9]\d*$/, "Must be a positive integer string");
 const nonNegativeIntegerString = z.string().regex(/^(0|[1-9]\d*)$/, "Must be an integer string");
@@ -88,3 +88,29 @@ export const metricObservationSchema = z.object({
 
 export type CreateAgreementInput = z.infer<typeof createAgreementSchema>;
 export type MetricObservationInput = z.infer<typeof metricObservationSchema>;
+
+const evidenceSchema = z.object({
+  url: z.string().url().max(2048),
+  label: z.string().trim().min(1).max(120).optional(),
+});
+
+export const deliverableSubmissionSchema = z.object({
+  proofUrl: z.string().url().max(2048),
+  notes: z.string().trim().max(5000).optional(),
+  evidence: z.array(evidenceSchema).max(10).default([]),
+  attested: z.literal(true),
+});
+
+export const deliverableReviewSchema = z
+  .object({
+    decision: z.enum([REVIEW_DECISION.changesRequested, REVIEW_DECISION.approved]),
+    comment: z.string().trim().max(5000).optional(),
+  })
+  .superRefine((review, ctx) => {
+    if (review.decision === REVIEW_DECISION.changesRequested && !review.comment) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["comment"], message: "Revision feedback is required" });
+    }
+  });
+
+export type DeliverableSubmissionInput = z.infer<typeof deliverableSubmissionSchema>;
+export type DeliverableReviewInput = z.infer<typeof deliverableReviewSchema>;

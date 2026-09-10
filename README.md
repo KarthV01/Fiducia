@@ -88,7 +88,7 @@ The UI talks to authenticated APIs:
 - Creator workspaces: `/api/creators/:creatorId/*`
 - Creator search: `/api/creators/search?q=...`
 
-Sponsors create contract invitations by searching creator account names/handles. A contract remains a draft invitation until the selected creator accepts it; acceptance creates/funds escrow and locks the full cap from the sponsor's generated local wallet. Delivery approval is still a manual operator action. Use **Record performance** on an active contract to submit integer metric values and release bonuses.
+Sponsors create contract invitations by searching creator account names/handles. A contract remains a draft invitation until the selected creator accepts it; acceptance creates/funds escrow and locks the full cap from the sponsor's generated local wallet. The creator then submits an immutable deliverable URL and proof hash for sponsor review. The sponsor can request a revision or approve the latest submission; approval anchors the proof hash and releases the base payout in one transaction. Use **Record performance** on an active contract to submit integer metric values and release bonuses.
 
 ## Account API
 
@@ -134,10 +134,11 @@ Accept it and create the on-chain escrow:
 curl -X POST http://localhost:3000/agreements/{agreementId}/accept
 ```
 
-Release the base payout after manual delivery approval:
+After upgrading, rebuild and redeploy the local contract before creating new escrow-backed agreements:
 
-```bash
-curl -X POST http://localhost:3000/agreements/{agreementId}/approve-delivery
+```powershell
+npm run contracts:build
+npm run deploy:local
 ```
 
 Submit simulated metric data and release eligible bonus payouts:

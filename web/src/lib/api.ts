@@ -8,6 +8,9 @@ import type {
   CreatorDashboard,
   CreatorProfile,
   EnrichedAgreement,
+  DeliverableSubmission,
+  DeliverableSubmissionInput,
+  DeliverableReviewInput,
   MetricObservationInput,
   MutationResult,
   ProfilesResponse,
@@ -88,8 +91,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify(input),
     }),
-  approveDelivery: (sponsorId: string, id: string) =>
-    request<MutationResult>(`/api/sponsors/${sponsorId}/contracts/${id}/approve-delivery`, { method: "POST" }),
+  reviewDeliverable: (sponsorId: string, id: string, submissionId: string, input: DeliverableReviewInput) =>
+    request<MutationResult>(`/api/sponsors/${sponsorId}/contracts/${id}/deliverables/${submissionId}/review`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
   recordBrandMetric: (sponsorId: string, id: string, input: MetricObservationInput) =>
     request<MutationResult>(`/api/sponsors/${sponsorId}/contracts/${id}/metrics`, {
       method: "POST",
@@ -105,6 +111,11 @@ export const api = {
     request<{ invites: ContractInvite[] }>(`/api/creators/${creatorId}/invites`),
   acceptInvite: (creatorId: string, inviteId: string) =>
     request<AcceptInviteResult>(`/api/creators/${creatorId}/invites/${inviteId}/accept`, { method: "POST" }),
+  submitDeliverable: (creatorId: string, id: string, input: DeliverableSubmissionInput) =>
+    request<{ submission: DeliverableSubmission; agreement: EnrichedAgreement }>(
+      `/api/creators/${creatorId}/contracts/${id}/deliverables`,
+      { method: "POST", body: JSON.stringify(input) },
+    ),
   recordCreatorMetric: (creatorId: string, id: string, input: MetricObservationInput) =>
     request<MutationResult>(`/api/creators/${creatorId}/contracts/${id}/metrics`, {
       method: "POST",

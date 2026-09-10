@@ -8,6 +8,7 @@ import {
   getAddress,
   http,
   maxUint256,
+  parseEther,
   type Address,
   type Hex,
 } from "viem";
@@ -19,7 +20,7 @@ const DEFAULT_BACKEND_PRIVATE_KEY =
 const DEFAULT_BRAND_PRIVATE_KEY =
   "0x59c6995e998f97a5a0044966f094538b7dc0bfc9c534c13181d3137555c99e0d" as Hex;
 const DEFAULT_CREATOR_PRIVATE_KEY =
-  "0x5de4111a7c5ea59db9281b8a1a6cd1f7085df4c4a44932b8c9e2dae5f58b1b0" as Hex;
+  "0x5de4111afa1baadb3186ed53779472626580c78aa5c85641590ce8b55b6c2411" as Hex;
 
 type FoundryArtifact = {
   abi: unknown[];
@@ -97,6 +98,15 @@ const mintHash = await backendClient.writeContract({
   args: [brandAccount.address, 1_000_000_000_000n],
 });
 await publicClient.waitForTransactionReceipt({ hash: mintHash });
+
+const brandBalance = await publicClient.getBalance({ address: brandAccount.address });
+if (brandBalance < parseEther("0.05")) {
+  const gasHash = await backendClient.sendTransaction({
+    to: brandAccount.address,
+    value: parseEther("1"),
+  });
+  await publicClient.waitForTransactionReceipt({ hash: gasHash });
+}
 
 const approveHash = await brandClient.writeContract({
   address: tokenAddress,

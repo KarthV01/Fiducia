@@ -11,16 +11,16 @@ import {
   publicSponsorProfile,
 } from "../accounts/profiles.js";
 import { buildDashboardTotals, enrichAgreement, presentInvite, summarizeAgreement } from "../accounts/presenters.js";
-import { metricObservationSchema } from "../domain/validation.js";
+import { deliverableReviewSchema, metricObservationSchema } from "../domain/validation.js";
 import { serviceUnavailable } from "../http/errors.js";
 import {
   agreementInclude,
-  approveDelivery,
   createAgreementFromInput,
   getAgreement,
   listAgreementsForBrandWallet,
   recordMetricObservation,
 } from "../services/agreementService.js";
+import { reviewDeliverable } from "../services/deliverableService.js";
 
 type RouteDeps = {
   prisma: PrismaClient;
@@ -115,14 +115,21 @@ export async function registerSponsorRoutes(app: FastifyInstance, deps: RouteDep
     return reply.code(201).send(presentInvite(invite));
   });
 
-  app.post<{ Params: { sponsorId: string; id: string } }>(
-    "/api/sponsors/:sponsorId/contracts/:id/approve-delivery",
+  app.post<{ Params: { sponsorId: string; id: string; submissionId: string } }>(
+    "/api/sponsors/:sponsorId/contracts/:id/deliverables/:submissionId/review",
     async (request) => {
       const user = await requireUser(prisma, request);
       const sponsor = await getSponsorProfileForUser(prisma, user.id, request.params.sponsorId);
       await ensureSponsorOwnsAgreement(prisma, sponsor.id, request.params.id);
-      const chain = requireChain(deps.chain);
-      const result = await approveDelivery(prisma, chain, request.params.id);
+      const input = deliverableReviewSchema.parse(request.body);
+      const result = await reviewDeliverable(
+        prisma,
+        deps.chain,
+        request.params.id,
+        request.params.submissionId,
+        sponsor.id,
+        input,
+      );
       const creators = await prisma.creatorProfile.findMany();
       return {
         releasedPayoutIds: result.releasedPayoutIds,

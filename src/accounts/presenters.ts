@@ -1,5 +1,5 @@
 import type { CreatorProfile, SponsorProfile } from "@prisma/client";
-import { PARTICIPANT_ROLE, PAYOUT_STATUS } from "../domain/status.js";
+import { AGREEMENT_STATUS, DELIVERABLE_STATUS, PARTICIPANT_ROLE, PAYOUT_STATUS } from "../domain/status.js";
 import type { AgreementView } from "../services/agreementService.js";
 import { publicCreatorProfile, publicSponsorProfile } from "./profiles.js";
 
@@ -64,6 +64,7 @@ export function enrichAgreement(
     sponsorProfile: findAgreementSponsor(agreement, sponsors),
     creatorProfile: findAgreementCreator(agreement, creators),
     financials: buildAgreementFinancials(agreement),
+    workflow: buildContractWorkflow(agreement),
   };
 }
 
@@ -84,7 +85,71 @@ export function summarizeAgreement(
     sponsorProfile: findAgreementSponsor(agreement, sponsors),
     creatorProfile: findAgreementCreator(agreement, creators),
     financials: buildAgreementFinancials(agreement),
+    workflow: buildContractWorkflow(agreement),
   };
+}
+
+export function buildContractWorkflow(agreement: AgreementView) {
+  const latestSubmission = agreement.deliverableSubmissions[0] ?? null;
+  const basePaid = agreement.payouts.some(
+    (payout) => payout.kind === "base" && payout.status === PAYOUT_STATUS.released,
+  );
+  const completedSteps: string[] = [];
+  if (agreement.status !== AGREEMENT_STATUS.draft && agreement.status !== AGREEMENT_STATUS.acceptedOffchain) {
+    completedSteps.push("Contract accepted", "Escrow funded");
+  }
+  if (latestSubmission) completedSteps.push("Deliverable submitted");
+  if (latestSubmission?.status === DELIVERABLE_STATUS.approved) completedSteps.push("Sponsor approved");
+  if (basePaid) completedSteps.push("Base payout released");
+
+  let deliveryStatus = "awaiting_submission";
+  let currentStep = "accept_contract";
+  let creatorAction: string | null = null;
+  let sponsorAction: string | null = null;
+
+  if (agreement.status === AGREEMENT_STATUS.draft || agreement.status === AGREEMENT_STATUS.acceptedOffchain) {
+    creatorAction = "accept";
+  } else if (agreement.status === AGREEMENT_STATUS.completed) {
+    deliveryStatus = latestSubmission?.status === DELIVERABLE_STATUS.approved ? "approved" : "awaiting_submission";
+    currentStep = "completed";
+  } else if (!latestSubmission) {
+    currentStep = "submit_deliverable";
+    creatorAction = "submit";
+  } else if (latestSubmission.status === DELIVERABLE_STATUS.submitted) {
+    deliveryStatus = "in_review";
+    currentStep = "review_deliverable";
+    sponsorAction = "review";
+  } else if (latestSubmission.status === DELIVERABLE_STATUS.changesRequested) {
+    deliveryStatus = "changes_requested";
+    currentStep = "revise_deliverable";
+    creatorAction = "revise";
+  } else {
+    deliveryStatus = "approved";
+    currentStep = "track_performance";
+  }
+
+  return {
+    deliveryStatus,
+    currentStep,
+    creatorAction,
+    sponsorAction,
+    completedSteps,
+    remainingSteps: remainingSteps(currentStep),
+    latestSubmission,
+    inviteId: agreement.contractInvite?.id ?? null,
+  };
+}
+
+function remainingSteps(currentStep: string) {
+  const steps = [
+    ["accept_contract", "Accept contract"],
+    ["submit_deliverable", "Submit deliverable"],
+    ["review_deliverable", "Sponsor review"],
+    ["revise_deliverable", "Submit revision"],
+    ["track_performance", "Track performance bonuses"],
+  ];
+  const index = steps.findIndex(([key]) => key === currentStep);
+  return index < 0 ? [] : steps.slice(index).map(([, label]) => label);
 }
 
 export function presentInvite(invite: {

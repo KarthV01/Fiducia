@@ -81,6 +81,47 @@ export type ContractSummary = {
   sponsorProfile: Party | null;
   creatorProfile: Party | null;
   financials: Financials;
+  workflow: ContractWorkflow;
+};
+
+export type DeliverableEvidence = {
+  id: string;
+  url: string;
+  label: string | null;
+  position: number;
+};
+
+export type DeliverableReview = {
+  id: string;
+  decision: "changes_requested" | "approved";
+  comment: string | null;
+  approvalTxHash: string | null;
+  reviewedAt: string;
+};
+
+export type DeliverableSubmission = {
+  id: string;
+  version: number;
+  status: "submitted" | "changes_requested" | "approved";
+  proofUrl: string;
+  notes: string | null;
+  contentHash: string;
+  submittedAt: string;
+  isLate: boolean;
+  approvedTxHash: string | null;
+  evidence: DeliverableEvidence[];
+  reviews: DeliverableReview[];
+};
+
+export type ContractWorkflow = {
+  deliveryStatus: "awaiting_submission" | "in_review" | "changes_requested" | "approved";
+  currentStep: "accept_contract" | "submit_deliverable" | "review_deliverable" | "revise_deliverable" | "track_performance" | "completed";
+  creatorAction: "accept" | "submit" | "revise" | null;
+  sponsorAction: "review" | null;
+  completedSteps: string[];
+  remainingSteps: string[];
+  latestSubmission: DeliverableSubmission | null;
+  inviteId: string | null;
 };
 
 export type Participant = {
@@ -139,6 +180,20 @@ export type EnrichedAgreement = {
   sponsorProfile: Party | null;
   creatorProfile: Party | null;
   financials: Financials;
+  deliverableSubmissions: DeliverableSubmission[];
+  workflow: ContractWorkflow;
+};
+
+export type DeliverableSubmissionInput = {
+  proofUrl: string;
+  notes?: string;
+  evidence: Array<{ url: string; label?: string }>;
+  attested: true;
+};
+
+export type DeliverableReviewInput = {
+  decision: "changes_requested" | "approved";
+  comment?: string;
 };
 
 export type ContractInvite = {

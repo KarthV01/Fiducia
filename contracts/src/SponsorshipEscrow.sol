@@ -23,6 +23,7 @@ contract SponsorshipEscrow {
     mapping(address => bool) public operators;
     mapping(bytes32 => Escrow) public escrows;
     mapping(bytes32 => mapping(bytes32 => bool)) public payoutReleased;
+    mapping(bytes32 => bytes32) public approvedDeliveryHash;
 
     event OperatorUpdated(address indexed operator, bool allowed);
     event EscrowCreated(
@@ -34,6 +35,7 @@ contract SponsorshipEscrow {
         bytes32 termsHash
     );
     event PayoutReleased(bytes32 indexed agreementId, bytes32 indexed payoutId, address indexed creator, uint256 amount);
+    event DeliveryApproved(bytes32 indexed agreementId, bytes32 indexed submissionHash, bytes32 indexed payoutId);
     event EscrowCompleted(bytes32 indexed agreementId);
 
     error Unauthorized();
@@ -45,6 +47,8 @@ contract SponsorshipEscrow {
     error PayoutAlreadyReleased();
     error CapExceeded();
     error TokenTransferFailed();
+    error DeliveryAlreadyApproved();
+    error ZeroHash();
 
     constructor() {
         owner = msg.sender;
@@ -98,6 +102,24 @@ contract SponsorshipEscrow {
     }
 
     function releasePayout(bytes32 agreementId, bytes32 payoutId, uint256 amount) external onlyOperator {
+        _releasePayout(agreementId, payoutId, amount);
+    }
+
+    function approveDeliveryAndRelease(
+        bytes32 agreementId,
+        bytes32 submissionHash,
+        bytes32 payoutId,
+        uint256 amount
+    ) external onlyOperator {
+        if (submissionHash == bytes32(0)) revert ZeroHash();
+        if (approvedDeliveryHash[agreementId] != bytes32(0)) revert DeliveryAlreadyApproved();
+
+        approvedDeliveryHash[agreementId] = submissionHash;
+        emit DeliveryApproved(agreementId, submissionHash, payoutId);
+        _releasePayout(agreementId, payoutId, amount);
+    }
+
+    function _releasePayout(bytes32 agreementId, bytes32 payoutId, uint256 amount) internal {
         Escrow storage escrow = escrows[agreementId];
         if (!escrow.exists) revert EscrowNotFound();
         if (!escrow.active) revert EscrowNotActive();

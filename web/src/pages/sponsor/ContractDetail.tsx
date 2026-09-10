@@ -60,7 +60,9 @@ export function SponsorContractDetailPage() {
         busy={busy}
         error={actionError}
         message={message}
-        onApprove={() => run(() => api.approveDelivery(sponsorId, view.id))}
+        onReviewDeliverable={(submissionId, input) =>
+          run(() => api.reviewDeliverable(sponsorId, view.id, submissionId, input))
+        }
         onRecordMetric={(input) => run(() => api.recordBrandMetric(sponsorId, view.id, input))}
       />
     </div>

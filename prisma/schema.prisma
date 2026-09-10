@@ -26,6 +26,57 @@ model Agreement {
   observations          MetricObservation[]
   blockchainRecord      BlockchainRecord?
   contractInvite        ContractInvite?
+  deliverableSubmissions DeliverableSubmission[]
+}
+
+model DeliverableSubmission {
+  id               String                @id
+  agreementId      String
+  creatorProfileId String
+  version          Int
+  status           String                @default("submitted")
+  proofUrl         String
+  notes            String?
+  contentHash      String
+  submittedAt      DateTime              @default(now())
+  isLate           Boolean               @default(false)
+  approvedTxHash   String?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  agreement        Agreement             @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  evidence         DeliverableEvidence[]
+  reviews          DeliverableReview[]
+
+  @@unique([agreementId, version])
+  @@index([agreementId, status])
+}
+
+model DeliverableEvidence {
+  id           String                @id @default(cuid())
+  submissionId String
+  url          String
+  label        String?
+  position     Int
+  createdAt    DateTime              @default(now())
+
+  submission   DeliverableSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, position])
+}
+
+model DeliverableReview {
+  id               String                @id @default(cuid())
+  submissionId     String
+  sponsorProfileId String
+  decision         String
+  comment          String?
+  approvalTxHash   String?
+  reviewedAt       DateTime              @default(now())
+
+  submission       DeliverableSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId, reviewedAt])
 }
 
 model Participant {
@@ -194,4 +245,32 @@ model ContractInvite {
   sponsorProfile   SponsorProfile @relation(fields: [sponsorProfileId], references: [id], onDelete: Cascade)
   creatorProfile   CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
   agreement        Agreement      @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+}
+
+// Legacy local demo data is retained so additive schema updates never drop it.
+model DemoBrand {
+  id                  String   @id
+  name                String
+  handle              String   @unique
+  walletAddress       String   @unique
+  industry            String
+  websiteUrl          String?
+  logoUrl             String?
+  monthlyBudgetAmount String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @default(now())
+}
+
+model DemoCreator {
+  id            String   @id
+  handle        String   @unique
+  displayName   String
+  walletAddress String   @unique
+  channelUrl    String?
+  category      String
+  averageViews  Int
+  audience      String?
+  avatarUrl     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now())
 }

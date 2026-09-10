@@ -22,7 +22,7 @@ describe("agreement API flow", () => {
     await prisma.$disconnect();
   });
 
-  it("creates, accepts, funds, approves delivery, and releases simulated metric bonuses idempotently", async () => {
+  it("creates, accepts, funds, and releases simulated metric bonuses idempotently", async () => {
     const createResponse = await app.inject({
       method: "POST",
       url: "/agreements",
@@ -71,15 +71,6 @@ describe("agreement API flow", () => {
     expect(acceptResponse.json().status).toBe("active");
     expect(chain.createdEscrows).toHaveLength(1);
 
-    const deliveryResponse = await app.inject({
-      method: "POST",
-      url: `/agreements/${created.id}/approve-delivery`,
-    });
-
-    expect(deliveryResponse.statusCode).toBe(200);
-    expect(deliveryResponse.json().releasedPayoutIds).toHaveLength(1);
-    expect(chain.releasedPayouts).toHaveLength(1);
-
     const metricResponse = await app.inject({
       method: "POST",
       url: `/agreements/${created.id}/metrics`,
@@ -91,7 +82,7 @@ describe("agreement API flow", () => {
 
     expect(metricResponse.statusCode).toBe(200);
     expect(metricResponse.json().releasedPayoutIds).toHaveLength(1);
-    expect(chain.releasedPayouts).toHaveLength(2);
+    expect(chain.releasedPayouts).toHaveLength(1);
 
     const repeatedMetricResponse = await app.inject({
       method: "POST",
@@ -104,6 +95,6 @@ describe("agreement API flow", () => {
 
     expect(repeatedMetricResponse.statusCode).toBe(200);
     expect(repeatedMetricResponse.json().releasedPayoutIds).toHaveLength(0);
-    expect(chain.releasedPayouts).toHaveLength(2);
+    expect(chain.releasedPayouts).toHaveLength(1);
   });
 });

@@ -41,6 +41,25 @@ export const sponsorshipEscrowAbi = [
     ],
     outputs: [],
   },
+  {
+    type: "function",
+    name: "approveDeliveryAndRelease",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "agreementId", type: "bytes32" },
+      { name: "submissionHash", type: "bytes32" },
+      { name: "payoutId", type: "bytes32" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "approvedDeliveryHash",
+    stateMutability: "view",
+    inputs: [{ name: "agreementId", type: "bytes32" }],
+    outputs: [{ name: "", type: "bytes32" }],
+  },
 ] as const;
 
 export const erc20Abi = [

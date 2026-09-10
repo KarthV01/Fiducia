@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from "react";
 import { formatDate, formatNumber, partyName, truncateAddress, truncateHash } from "../lib/format";
 import { formatUsdc } from "../lib/money";
-import type { EnrichedAgreement, MetricObservationInput } from "../lib/types";
-import { Banner, Button, CopyText, Field, Input, Select, StatusPill } from "./primitives";
+import type { DeliverableReviewInput, DeliverableSubmissionInput, EnrichedAgreement, MetricObservationInput } from "../lib/types";
+import { Banner, Button, CopyText, Field, Input, Select, StatusPill, Textarea } from "./primitives";
 
 export function ContractPanel({
   contract,
@@ -11,7 +11,8 @@ export function ContractPanel({
   message,
   error,
   onFund,
-  onApprove,
+  onSubmitDeliverable,
+  onReviewDeliverable,
   onRecordMetric,
 }: {
   contract: EnrichedAgreement;
@@ -20,15 +21,11 @@ export function ContractPanel({
   message?: string | null;
   error?: string | null;
   onFund?: () => void;
-  onApprove?: () => void;
+  onSubmitDeliverable?: (input: DeliverableSubmissionInput) => void;
+  onReviewDeliverable?: (submissionId: string, input: DeliverableReviewInput) => void;
   onRecordMetric?: (input: MetricObservationInput) => void;
 }) {
   const canFund = variant === "sponsor" && contract.status === "draft" && onFund;
-  const canApprove =
-    variant === "sponsor" &&
-    contract.status === "active" &&
-    contract.payouts.some((payout) => payout.kind === "base" && payout.status === "pending") &&
-    onApprove;
   const canRecord = contract.status === "active" && contract.metrics.length > 0 && onRecordMetric;
 
   return (
@@ -36,23 +33,26 @@ export function ContractPanel({
       {error ? <Banner>{error}</Banner> : null}
       {message ? <Banner tone="info">{message}</Banner> : null}
 
-      {(canFund || canApprove || canRecord) && (
+      <DeliverableWorkflow
+        contract={contract}
+        variant={variant}
+        busy={busy}
+        onSubmit={onSubmitDeliverable}
+        onReview={onReviewDeliverable}
+      />
+
+      {(canFund || canRecord) && (
         <section className="rounded-[8px] border-2 border-ink/20 bg-surface p-5">
           <h2 className="text-sm font-medium text-ink">Actions</h2>
           <p className="mt-1 text-sm text-muted">
             {variant === "sponsor"
-              ? "Delivery approval is an operator check. Video content is not verified yet."
+              ? "Record performance after the approved deliverable starts accumulating results."
               : "Submit observed performance metrics for this active contract. File uploads are handled separately."}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             {canFund ? (
               <Button type="button" disabled={busy} onClick={onFund}>
                 Fund escrow
-              </Button>
-            ) : null}
-            {canApprove ? (
-              <Button type="button" disabled={busy} onClick={onApprove}>
-                Approve delivery
               </Button>
             ) : null}
           </div>
@@ -164,6 +164,97 @@ export function ContractPanel({
         )}
       </section>
     </div>
+  );
+}
+
+function DeliverableWorkflow({
+  contract,
+  variant,
+  busy,
+  onSubmit,
+  onReview,
+}: {
+  contract: EnrichedAgreement;
+  variant: "sponsor" | "creator";
+  busy?: boolean;
+  onSubmit?: (input: DeliverableSubmissionInput) => void;
+  onReview?: (submissionId: string, input: DeliverableReviewInput) => void;
+}) {
+  const latest = contract.workflow.latestSubmission;
+  const [proofUrl, setProofUrl] = useState("");
+  const [notes, setNotes] = useState("");
+  const [evidenceUrl, setEvidenceUrl] = useState("");
+  const [evidenceLabel, setEvidenceLabel] = useState("");
+  const [attested, setAttested] = useState(false);
+  const [reviewComment, setReviewComment] = useState("");
+  const maySubmit = variant === "creator" && (contract.workflow.creatorAction === "submit" || contract.workflow.creatorAction === "revise");
+  const mayReview = variant === "sponsor" && contract.workflow.sponsorAction === "review" && latest;
+
+  return (
+    <section className="rounded-[8px] border-2 border-ink/20 bg-surface p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-medium text-ink">Deliverable workflow</h2>
+          <p className="mt-1 text-sm text-muted">Current step: {contract.workflow.currentStep.replaceAll("_", " ")}</p>
+        </div>
+        <StatusPill status={contract.workflow.deliveryStatus} />
+      </div>
+
+      <ol className="mt-4 grid gap-2 text-sm md:grid-cols-2">
+        {contract.workflow.completedSteps.map((step) => <li key={step}>✓ {step}</li>)}
+        {contract.workflow.remainingSteps.map((step, index) => <li key={step} className={index === 0 ? "font-semibold text-ink" : "text-muted"}>○ {step}</li>)}
+      </ol>
+
+      {latest ? (
+        <div className="mt-5 rounded-[6px] border border-rule bg-canvas p-4 text-sm">
+          <div className="flex items-center justify-between"><strong>Submission v{latest.version}</strong><StatusPill status={latest.status} /></div>
+          <a className="mt-2 block break-all text-accent underline" href={latest.proofUrl} target="_blank" rel="noreferrer">{latest.proofUrl}</a>
+          {latest.notes ? <p className="mt-2 whitespace-pre-wrap text-muted">{latest.notes}</p> : null}
+          {latest.evidence.map((item) => <a key={item.id} className="mt-2 block break-all text-accent underline" href={item.url} target="_blank" rel="noreferrer">{item.label ?? item.url}</a>)}
+          {latest.isLate ? <p className="mt-2 text-[#8a3a2a]">Submitted after the contract deadline.</p> : null}
+          {latest.reviews.map((review) => review.comment ? <p key={review.id} className="mt-3 border-l-2 border-ink/25 pl-3 text-muted"><strong>{review.decision.replaceAll("_", " ")}:</strong> {review.comment}</p> : null)}
+          {latest.approvedTxHash ? <div className="mt-3"><CopyText value={latest.approvedTxHash} label={truncateHash(latest.approvedTxHash)} /></div> : null}
+        </div>
+      ) : null}
+
+      {contract.deliverableSubmissions.length > 1 ? (
+        <details className="mt-4 text-sm">
+          <summary className="cursor-pointer font-medium text-ink">Earlier submission versions</summary>
+          <div className="mt-3 space-y-3">
+            {contract.deliverableSubmissions.slice(1).map((submission) => (
+              <div key={submission.id} className="rounded-[6px] border border-rule p-3">
+                <div className="flex justify-between"><strong>Version {submission.version}</strong><StatusPill status={submission.status} /></div>
+                <a className="mt-2 block break-all text-accent underline" href={submission.proofUrl} target="_blank" rel="noreferrer">{submission.proofUrl}</a>
+                {submission.reviews.map((review) => review.comment ? <p key={review.id} className="mt-2 text-muted">{review.comment}</p> : null)}
+              </div>
+            ))}
+          </div>
+        </details>
+      ) : null}
+
+      {maySubmit ? (
+        <form className="mt-5 space-y-4" onSubmit={(event) => { event.preventDefault(); onSubmit?.({ proofUrl, notes: notes || undefined, evidence: evidenceUrl ? [{ url: evidenceUrl, label: evidenceLabel || undefined }] : [], attested: true }); }}>
+          <Field label="Deliverable URL" required><Input type="url" value={proofUrl} onChange={(event) => setProofUrl(event.target.value)} required placeholder="https://youtube.com/..." /></Field>
+          <Field label="Submission notes"><Textarea rows={4} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Where the integration appears, review notes, or supporting context" /></Field>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Supporting evidence URL"><Input type="url" value={evidenceUrl} onChange={(event) => setEvidenceUrl(event.target.value)} placeholder="https://drive.google.com/..." /></Field>
+            <Field label="Evidence label"><Input value={evidenceLabel} onChange={(event) => setEvidenceLabel(event.target.value)} placeholder="Analytics screenshot" /></Field>
+          </div>
+          <label className="flex gap-2 text-sm text-ink"><input type="checkbox" checked={attested} onChange={(event) => setAttested(event.target.checked)} />I confirm this is the deliverable covered by this contract.</label>
+          <Button type="submit" disabled={busy || !proofUrl || !attested}>{contract.workflow.creatorAction === "revise" ? "Submit revision" : "Submit deliverable"}</Button>
+        </form>
+      ) : null}
+
+      {mayReview ? (
+        <div className="mt-5 space-y-4">
+          <Field label="Review comment"><Textarea rows={4} value={reviewComment} onChange={(event) => setReviewComment(event.target.value)} placeholder="Feedback for the creator" /></Field>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="secondary" disabled={busy || !reviewComment.trim()} onClick={() => onReview?.(latest.id, { decision: "changes_requested", comment: reviewComment })}>Request changes</Button>
+            <Button type="button" disabled={busy} onClick={() => { if (window.confirm("Approve this proof and irreversibly release the base payout?")) onReview?.(latest.id, { decision: "approved", comment: reviewComment || undefined }); }}>Approve and release payout</Button>
+          </div>
+        </div>
+      ) : null}
+    </section>
   );
 }
 

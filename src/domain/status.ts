@@ -24,3 +24,14 @@ export const PAYOUT_STATUS = {
 export const CONDITION_OPERATOR = {
   gte: "gte",
 } as const;
+
+export const DELIVERABLE_STATUS = {
+  submitted: "submitted",
+  changesRequested: "changes_requested",
+  approved: "approved",
+} as const;
+
+export const REVIEW_DECISION = {
+  changesRequested: "changes_requested",
+  approved: "approved",
+} as const;

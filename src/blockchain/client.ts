@@ -37,6 +37,10 @@ export type ReleasePayoutInput = {
   amount: string;
 };
 
+export type ApproveDeliveryInput = ReleasePayoutInput & {
+  submissionHash: Hex;
+};
+
 export type PrepareLocalSponsorWalletInput = {
   walletAddress: string;
   privateKey: Hex;
@@ -60,6 +64,7 @@ export interface ChainClient {
   prepareLocalSponsorWallet?(input: PrepareLocalSponsorWalletInput): Promise<void>;
   createEscrow(input: CreateEscrowInput): Promise<CreateEscrowResult>;
   releasePayout(input: ReleasePayoutInput): Promise<ChainWriteResult>;
+  approveDeliveryAndRelease(input: ApproveDeliveryInput): Promise<ChainWriteResult>;
 }
 
 export type ChainClientConfig = {
@@ -195,6 +200,23 @@ export class ViemChainClient implements ChainClient {
       abi: sponsorshipEscrowAbi,
       functionName: "releasePayout",
       args: [agreementKey(input.agreementId), payoutKey(input.agreementId, input.payoutId), BigInt(input.amount)],
+    });
+
+    await this.publicClient.waitForTransactionReceipt({ hash: txHash });
+    return { txHash };
+  }
+
+  async approveDeliveryAndRelease(input: ApproveDeliveryInput): Promise<ChainWriteResult> {
+    const txHash = await this.walletClient.writeContract({
+      address: this.escrowAddress,
+      abi: sponsorshipEscrowAbi,
+      functionName: "approveDeliveryAndRelease",
+      args: [
+        agreementKey(input.agreementId),
+        input.submissionHash,
+        payoutKey(input.agreementId, input.payoutId),
+        BigInt(input.amount),
+      ],
     });
 
     await this.publicClient.waitForTransactionReceipt({ hash: txHash });

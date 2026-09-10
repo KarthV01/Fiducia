@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import type {
   ChainClient,
+  ApproveDeliveryInput,
   CreateEscrowInput,
   PrepareLocalSponsorWalletInput,
   ReleasePayoutInput,
@@ -12,6 +13,7 @@ export class FakeChainClient implements ChainClient {
   defaultTokenAddress = "0x4444444444444444444444444444444444444444" as const;
   createdEscrows: CreateEscrowInput[] = [];
   releasedPayouts: ReleasePayoutInput[] = [];
+  approvedDeliveries: ApproveDeliveryInput[] = [];
   preparedSponsorWallets: PrepareLocalSponsorWalletInput[] = [];
 
   async prepareLocalSponsorWallet(input: PrepareLocalSponsorWalletInput) {
@@ -32,6 +34,14 @@ export class FakeChainClient implements ChainClient {
     this.releasedPayouts.push(input);
     return {
       txHash: `0x${"c".repeat(64)}` as const,
+    };
+  }
+
+  async approveDeliveryAndRelease(input: ApproveDeliveryInput) {
+    this.approvedDeliveries.push(input);
+    this.releasedPayouts.push(input);
+    return {
+      txHash: `0x${"d".repeat(64)}` as const,
     };
   }
 }
@@ -179,6 +189,25 @@ type ContractInviteRow = {
   updatedAt: Date;
 };
 
+type DeliverableSubmissionRow = {
+  id: string;
+  agreementId: string;
+  creatorProfileId: string;
+  version: number;
+  status: string;
+  proofUrl: string;
+  notes: string | null;
+  contentHash: string;
+  submittedAt: Date;
+  isLate: boolean;
+  approvedTxHash: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type DeliverableEvidenceRow = { id: string; submissionId: string; url: string; label: string | null; position: number; createdAt: Date };
+type DeliverableReviewRow = { id: string; submissionId: string; sponsorProfileId: string; decision: string; comment: string | null; approvalTxHash: string | null; reviewedAt: Date };
+
 export class FakePrisma {
   private sequence = 0;
   private agreements: AgreementRow[] = [];
@@ -194,6 +223,9 @@ export class FakePrisma {
   private creatorProfiles: CreatorProfileRow[] = [];
   private profileWallets: ProfileWalletRow[] = [];
   private contractInvites: ContractInviteRow[] = [];
+  private deliverableSubmissions: DeliverableSubmissionRow[] = [];
+  private deliverableEvidence: DeliverableEvidenceRow[] = [];
+  private deliverableReviews: DeliverableReviewRow[] = [];
 
   agreement = {
     create: async ({ data }: { data: Partial<AgreementRow> }) => {
@@ -311,6 +343,41 @@ export class FakePrisma {
         createdAt: new Date(),
       };
       this.observations.push(row);
+      return row;
+    },
+  };
+
+  deliverableSubmission = {
+    create: async ({ data }: { data: Partial<DeliverableSubmissionRow> & { evidence?: { create: Array<{ url: string; label?: string; position: number }> } } }) => {
+      const now = new Date();
+      const row: DeliverableSubmissionRow = {
+        id: data.id!, agreementId: data.agreementId!, creatorProfileId: data.creatorProfileId!, version: data.version!,
+        status: data.status ?? "submitted", proofUrl: data.proofUrl!, notes: data.notes ?? null,
+        contentHash: data.contentHash!, submittedAt: data.submittedAt ?? now, isLate: data.isLate ?? false,
+        approvedTxHash: data.approvedTxHash ?? null, createdAt: now, updatedAt: now,
+      };
+      this.deliverableSubmissions.push(row);
+      for (const evidence of data.evidence?.create ?? []) {
+        this.deliverableEvidence.push({ id: this.id("evidence"), submissionId: row.id, url: evidence.url, label: evidence.label ?? null, position: evidence.position, createdAt: now });
+      }
+      return this.hydrateSubmission(row);
+    },
+    update: async ({ where, data }: { where: { id: string }; data: Partial<DeliverableSubmissionRow> }) => {
+      const row = this.deliverableSubmissions.find((item) => item.id === where.id);
+      if (!row) throw new Error("Submission not found");
+      Object.assign(row, data, { updatedAt: new Date() });
+      return this.hydrateSubmission(row);
+    },
+  };
+
+  deliverableReview = {
+    create: async ({ data }: { data: Partial<DeliverableReviewRow> }) => {
+      const row: DeliverableReviewRow = {
+        id: data.id ?? this.id("review"), submissionId: data.submissionId!, sponsorProfileId: data.sponsorProfileId!,
+        decision: data.decision!, comment: data.comment ?? null, approvalTxHash: data.approvalTxHash ?? null,
+        reviewedAt: data.reviewedAt ?? new Date(),
+      };
+      this.deliverableReviews.push(row);
       return row;
     },
   };
@@ -676,7 +743,23 @@ export class FakePrisma {
       metrics,
       payouts,
       observations,
+      deliverableSubmissions: this.deliverableSubmissions
+        .filter((submission) => submission.agreementId === id)
+        .sort((a, b) => b.version - a.version)
+        .map((submission) => this.hydrateSubmission(submission)),
       blockchainRecord: this.blockchainRecords.find((record) => record.agreementId === id) ?? null,
+    };
+  }
+
+  private hydrateSubmission(submission: DeliverableSubmissionRow) {
+    return {
+      ...submission,
+      evidence: this.deliverableEvidence
+        .filter((item) => item.submissionId === submission.id)
+        .sort((a, b) => a.position - b.position),
+      reviews: this.deliverableReviews
+        .filter((item) => item.submissionId === submission.id)
+        .sort((a, b) => a.reviewedAt.getTime() - b.reviewedAt.getTime()),
     };
   }
 }
