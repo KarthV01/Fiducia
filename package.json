@@ -13,6 +13,7 @@
     "contracts:build": "forge build",
     "contracts:test": "forge test",
     "deploy:local": "tsx scripts/deployLocal.ts",
+    "verify:local-flow": "tsx scripts/verifyLocalFlow.ts",
     "deploy:base-sepolia": "tsx scripts/deployBase.ts base-sepolia",
     "deploy:base-mainnet": "tsx scripts/deployBase.ts base-mainnet",
     "check:base-sepolia": "tsx scripts/checkBaseReadiness.ts base-sepolia",

@@ -43,6 +43,7 @@ Build and deploy the local contracts:
 ```powershell
 npm run contracts:build
 npm run deploy:local
+npm run verify:local-flow
 ```
 
 Set the printed `ESCROW_CONTRACT_ADDRESS` and `USDC_CONTRACT_ADDRESS` values in `.env`, or keep the generated `deployments/local.json` file. The API prefers `.env` and falls back to `deployments/local.json`. The deploy script also mints mock USDC to Anvil account #1 and approves the escrow contract for local agreement funding.
