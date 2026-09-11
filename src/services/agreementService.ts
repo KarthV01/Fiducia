@@ -45,8 +45,13 @@ export const agreementInclude = {
     include: {
       evidence: { orderBy: { position: "asc" } },
       reviews: { orderBy: { reviewedAt: "asc" } },
+      upload: true,
     },
   },
+  uploadSessions: { orderBy: { createdAt: "desc" } },
+  publications: { orderBy: { createdAt: "desc" } },
+  performanceRules: true,
+  chainOperations: { orderBy: { createdAt: "desc" } },
 } satisfies Prisma.AgreementInclude;
 
 export type AgreementView = Prisma.AgreementGetPayload<{

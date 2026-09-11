@@ -81,7 +81,7 @@ export async function reviewDeliverable(
     submissionId: submission.id,
     version: submission.version,
     creatorWallet: agreement.participants.find((party) => party.role === "creator")?.walletAddress ?? "",
-    proofUrl: submission.proofUrl,
+    proofUrl: submission.proofUrl ?? "",
     notes: submission.notes,
     evidence: submission.evidence,
     submittedAt: submission.submittedAt,

@@ -12,3 +12,4 @@ out/
 cache/
 coverage/
 .vitest/
+storage/

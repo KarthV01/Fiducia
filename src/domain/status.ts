@@ -35,3 +35,10 @@ export const REVIEW_DECISION = {
   changesRequested: "changes_requested",
   approved: "approved",
 } as const;
+
+export const CHECKPOINT = { promo: "promo", finalCut: "final_cut" } as const;
+export const UPLOAD_STATUS = { uploading: "uploading", complete: "complete" } as const;
+export const PUBLICATION_STATUS = {
+  pending: "pending", publishing: "publishing", verifying: "verifying", verified: "verified",
+  verificationRequired: "verification_required", retention: "retention", completed: "completed", failed: "failed",
+} as const;

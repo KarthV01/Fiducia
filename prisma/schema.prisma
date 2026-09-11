@@ -27,6 +27,39 @@ model Agreement {
   blockchainRecord      BlockchainRecord?
   contractInvite        ContractInvite?
   deliverableSubmissions DeliverableSubmission[]
+  uploadSessions         UploadSession[]
+  publications           Publication[]
+  performanceRules       PerformanceRule[]
+  chainOperations        ChainOperation[]
+
+  basePayoutAmount       String?
+  performancePoolAmount  String?
+  promoRequirements      String?
+  finalCutRequirements   String?
+  publicationRequirements String?
+  publicationDeadline    DateTime?
+  retentionDays          Int                  @default(7)
+}
+
+model UploadSession {
+  id               String   @id
+  agreementId      String
+  creatorProfileId String
+  checkpoint       String
+  status           String   @default("uploading")
+  fileName         String
+  mimeType         String
+  totalSize        String
+  receivedSize     String   @default("0")
+  storageKey       String
+  sha256           String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  agreement        Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  submission       DeliverableSubmission?
+
+  @@index([agreementId, status])
 }
 
 model DeliverableSubmission {
@@ -35,7 +68,9 @@ model DeliverableSubmission {
   creatorProfileId String
   version          Int
   status           String                @default("submitted")
-  proofUrl         String
+  proofUrl         String?
+  checkpoint       String                @default("promo")
+  uploadId         String?               @unique
   notes            String?
   contentHash      String
   submittedAt      DateTime              @default(now())
@@ -45,10 +80,65 @@ model DeliverableSubmission {
   updatedAt        DateTime              @updatedAt
 
   agreement        Agreement             @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  upload            UploadSession?        @relation(fields: [uploadId], references: [id], onDelete: Restrict)
   evidence         DeliverableEvidence[]
   reviews          DeliverableReview[]
 
   @@unique([agreementId, version])
+  @@index([agreementId, status])
+}
+
+model Publication {
+  id               String   @id @default(cuid())
+  agreementId      String
+  method           String
+  status           String   @default("pending")
+  youtubeVideoId   String?
+  youtubeUrl       String?
+  channelId        String?
+  artifactHash     String
+  fingerprintScore Float?
+  publishedAt      DateTime?
+  verifiedAt       DateTime?
+  lastCheckedAt    DateTime?
+  failureReason    String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  agreement        Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+
+  @@index([agreementId, status])
+}
+
+model PerformanceRule {
+  id                    String   @id @default(cuid())
+  agreementId           String
+  kind                  String
+  threshold             String?
+  amount                String?
+  startsAtViews         String?
+  amountPerThousandViews String?
+  maximumAmount         String?
+  releasedAmount        String   @default("0")
+  createdAt             DateTime @default(now())
+
+  agreement             Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+}
+
+model ChainOperation {
+  id          String   @id
+  agreementId String
+  kind        String
+  idempotencyKey String @unique
+  status      String   @default("pending")
+  payloadJson String
+  txHash      String?
+  error       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  agreement   Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+
   @@index([agreementId, status])
 }
 

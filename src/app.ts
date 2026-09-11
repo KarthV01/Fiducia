@@ -9,6 +9,7 @@ import { registerCreatorRoutes } from "./routes/creators.js";
 import { registerProfileRoutes } from "./routes/profiles.js";
 import { registerSponsorRoutes } from "./routes/sponsors.js";
 import { HttpError } from "./http/errors.js";
+import { registerArtifactRoutes } from "./routes/artifacts.js";
 
 export type AppDependencies = {
   prisma: PrismaClient;
@@ -22,6 +23,7 @@ export async function buildApp(deps: AppDependencies) {
   });
 
   await app.register(cors, { origin: true });
+  app.addContentTypeParser("application/octet-stream", { parseAs: "buffer", bodyLimit: 8 * 1024 * 1024 }, (_request, body, done) => done(null, body));
 
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof ZodError) {
@@ -59,6 +61,7 @@ export async function buildApp(deps: AppDependencies) {
   await app.register(registerProfileRoutes, deps);
   await app.register(registerSponsorRoutes, deps);
   await app.register(registerCreatorRoutes, deps);
+  await app.register(registerArtifactRoutes, deps);
 
   return app;
 }
