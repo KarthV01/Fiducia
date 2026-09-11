@@ -34,14 +34,16 @@ export function CreatorContractDetailPage() {
         busy={busy}
         error={actionError}
         message={message}
-        onSubmitDeliverable={async (input) => {
+        onSubmitDeliverable={async (checkpoint, file, notes, onProgress) => {
           setBusy(true);
           setActionError(null);
           setMessage(null);
           try {
-            const result = await api.submitDeliverable(creatorId, view.id, input);
-            setContract(result.agreement);
-            setMessage("Deliverable submitted for sponsor review.");
+            const uploadId = await api.uploadCheckpointFile(creatorId, view.id, checkpoint, file, onProgress);
+            await api.submitCheckpoint(creatorId, view.id, checkpoint, { uploadId, notes: notes || undefined, attested: true });
+            const refreshed = await api.creatorContract(creatorId, view.id);
+            setContract(refreshed);
+            setMessage(`${checkpoint === "promo" ? "Promotional concept" : "Final cut"} submitted for private review.`);
           } catch (err) {
             setActionError(err instanceof Error ? err.message : "Could not submit deliverable");
           } finally {
@@ -49,24 +51,30 @@ export function CreatorContractDetailPage() {
             reload();
           }
         }}
-        onRecordMetric={async (input) => {
+        onPublish={async (input) => {
+        try {
           setBusy(true);
           setActionError(null);
-          setMessage(null);
-          try {
-            const result = await api.recordCreatorMetric(creatorId, view.id, input);
-            setContract(result.agreement);
-            setMessage(
-              result.releasedPayoutIds.length > 0
-                ? `Released ${result.releasedPayoutIds.length} payout${result.releasedPayoutIds.length === 1 ? "" : "s"}.`
-                : "Observation recorded.",
-            );
-          } catch (err) {
-            setActionError(err instanceof Error ? err.message : "Action failed");
-          } finally {
-            setBusy(false);
-            reload();
-          }
+          await api.createPublication(creatorId, view.id, input);
+          setMessage(input.method === "service" ? "Publication submitted to YouTube for processing." : "Manual publication submitted for fingerprint verification.");
+          setContract(await api.creatorContract(creatorId, view.id));
+        } catch (nextError) {
+          setActionError(nextError instanceof Error ? nextError.message : "Could not start publication");
+        } finally {
+          setBusy(false);
+          reload();
+        }
+        }}
+        onConnectYouTube={async () => {
+        setBusy(true);
+        setActionError(null);
+        try {
+          const connection = await api.connectYouTube(creatorId, view.id);
+          window.location.assign(connection.authorizationUrl);
+        } catch (nextError) {
+          setActionError(nextError instanceof Error ? nextError.message : "Could not connect YouTube");
+          setBusy(false);
+        }
         }}
       />
     </div>

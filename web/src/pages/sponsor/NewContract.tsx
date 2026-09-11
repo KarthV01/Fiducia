@@ -33,6 +33,13 @@ export function NewContractPage() {
   const [windowDays, setWindowDays] = useState("");
   const [baseUsdc, setBaseUsdc] = useState("");
   const [capUsdc, setCapUsdc] = useState("");
+  const [promoRequirements, setPromoRequirements] = useState("Sponsor message and disclosure concept");
+  const [finalCutRequirements, setFinalCutRequirements] = useState("Complete pre-publication video containing the approved promotion");
+  const [publicationRequirements, setPublicationRequirements] = useState("Publish the approved final cut on the contracted creator channel");
+  const [retentionDays, setRetentionDays] = useState("7");
+  const [meteredStart, setMeteredStart] = useState("");
+  const [meteredRate, setMeteredRate] = useState("");
+  const [meteredCap, setMeteredCap] = useState("");
   const [milestones, setMilestones] = useState<MilestoneRow[]>([{ views: "", bonusUsdc: "" }]);
   const [bonuses, setBonuses] = useState<BonusRow[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -50,13 +57,14 @@ export function NewContractPage() {
         (sum, row) => sum + (row.bonusUsdc.trim() ? BigInt(usdcToUnits(row.bonusUsdc)) : 0n),
         0n,
       );
-      const defined = base + milestoneTotal + bonusTotal;
+      const meteredMaximum = meteredCap.trim() ? BigInt(usdcToUnits(meteredCap)) : 0n;
+      const defined = base + milestoneTotal + bonusTotal + meteredMaximum;
       const cap = capUsdc.trim() ? BigInt(usdcToUnits(capUsdc)) : defined;
       return { defined: defined.toString(), cap: cap.toString(), valid: cap >= defined };
     } catch {
       return null;
     }
-  }, [baseUsdc, bonuses, capUsdc, milestones]);
+  }, [baseUsdc, bonuses, capUsdc, milestones, meteredCap]);
 
   useEffect(() => {
     const fromQuery = searchParams.get("creatorProfileId");
@@ -109,7 +117,8 @@ export function NewContractPage() {
       const defined =
         BigInt(basePayoutAmount) +
         viewMilestones.reduce((sum, row) => sum + BigInt(row.bonusAmount), 0n) +
-        metricBonuses.reduce((sum, row) => sum + BigInt(row.bonusAmount), 0n);
+        metricBonuses.reduce((sum, row) => sum + BigInt(row.bonusAmount), 0n) +
+        BigInt(meteredCap.trim() ? usdcToUnits(meteredCap) : "0");
       const totalCapAmount = capUsdc.trim() ? usdcToUnits(capUsdc) : defined.toString();
       if (BigInt(totalCapAmount) < defined) {
         throw new Error("Total cap must cover the base payout and all bonuses.");
@@ -125,6 +134,11 @@ export function NewContractPage() {
         totalCapAmount,
         viewMilestones,
         metricBonuses,
+        promoRequirements,
+        finalCutRequirements,
+        publicationRequirements,
+        retentionDays: Number(retentionDays),
+        meteredViews: meteredStart && meteredRate && meteredCap ? { startsAtViews: meteredStart, amountPerThousandViews: usdcToUnits(meteredRate), maximumAmount: usdcToUnits(meteredCap) } : undefined,
       });
       navigate(`/sponsor/${sponsorId}/contracts/${created.agreement.id}`);
     } catch (err) {
@@ -204,6 +218,13 @@ export function NewContractPage() {
         <Field label="Deliverable" required>
           <Textarea rows={4} value={deliverable} onChange={(event) => setDeliverable(event.target.value)} required />
         </Field>
+        <section className="space-y-4 rounded-[8px] border-2 border-ink/20 bg-surface p-4">
+          <h2 className="text-sm font-medium text-ink">Approval criteria</h2>
+          <Field label="Promotional concept requirements" required><Textarea rows={3} value={promoRequirements} onChange={(event) => setPromoRequirements(event.target.value)} required /></Field>
+          <Field label="Private final-cut requirements" required><Textarea rows={3} value={finalCutRequirements} onChange={(event) => setFinalCutRequirements(event.target.value)} required /></Field>
+          <Field label="Publication requirements" required><Textarea rows={3} value={publicationRequirements} onChange={(event) => setPublicationRequirements(event.target.value)} required /></Field>
+          <Field label="Required live window (days)" required><Input type="number" min={1} value={retentionDays} onChange={(event) => setRetentionDays(event.target.value)} required /></Field>
+        </section>
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Deadline" required>
             <Input type="date" value={deadline} onChange={(event) => setDeadline(event.target.value)} required />
@@ -263,6 +284,16 @@ export function NewContractPage() {
                 </Button>
               </div>
             ))}
+          </div>
+        </section>
+
+        <section className="rounded-[8px] border-2 border-ink/20 bg-surface p-4">
+          <h2 className="text-sm font-medium text-ink">Metered view earnings</h2>
+          <p className="mt-1 text-sm text-muted">Optional capped payment per 1,000 verified views above a starting point.</p>
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
+            <Field label="Starts after views"><Input value={meteredStart} onChange={(event) => setMeteredStart(event.target.value)} /></Field>
+            <Field label="USDC per 1,000"><Input value={meteredRate} onChange={(event) => setMeteredRate(event.target.value)} /></Field>
+            <Field label="Maximum USDC"><Input value={meteredCap} onChange={(event) => setMeteredCap(event.target.value)} /></Field>
           </div>
         </section>
 

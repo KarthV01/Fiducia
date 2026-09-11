@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { formatDate, formatNumber, partyName, truncateAddress, truncateHash } from "../lib/format";
 import { formatUsdc } from "../lib/money";
-import type { DeliverableReviewInput, DeliverableSubmissionInput, EnrichedAgreement, MetricObservationInput } from "../lib/types";
+import type { DeliverableReviewInput, EnrichedAgreement, MetricObservationInput } from "../lib/types";
 import { Banner, Button, CopyText, Field, Input, Select, StatusPill, Textarea } from "./primitives";
 
 export function ContractPanel({
@@ -14,6 +14,8 @@ export function ContractPanel({
   onSubmitDeliverable,
   onReviewDeliverable,
   onRecordMetric,
+  onPublish,
+  onConnectYouTube,
 }: {
   contract: EnrichedAgreement;
   variant: "sponsor" | "creator";
@@ -21,12 +23,14 @@ export function ContractPanel({
   message?: string | null;
   error?: string | null;
   onFund?: () => void;
-  onSubmitDeliverable?: (input: DeliverableSubmissionInput) => void;
+  onSubmitDeliverable?: (checkpoint: "promo" | "final_cut", file: File, notes: string, onProgress: (value: number) => void) => Promise<void>;
   onReviewDeliverable?: (submissionId: string, input: DeliverableReviewInput) => void;
   onRecordMetric?: (input: MetricObservationInput) => void;
+  onPublish?: (input: { method: "manual"; youtubeUrl: string } | { method: "service"; title: string; description: string }) => Promise<void>;
+  onConnectYouTube?: () => Promise<void>;
 }) {
   const canFund = variant === "sponsor" && contract.status === "draft" && onFund;
-  const canRecord = contract.status === "active" && contract.metrics.length > 0 && onRecordMetric;
+  const canRecord = variant === "sponsor" && contract.status === "active" && contract.metrics.length > 0 && onRecordMetric;
 
   return (
     <div className="space-y-6">
@@ -39,6 +43,8 @@ export function ContractPanel({
         busy={busy}
         onSubmit={onSubmitDeliverable}
         onReview={onReviewDeliverable}
+        onPublish={onPublish}
+        onConnectYouTube={onConnectYouTube}
       />
 
       {(canFund || canRecord) && (
@@ -66,6 +72,9 @@ export function ContractPanel({
         </section>
       )}
 
+      <details className="rounded-[8px] border-2 border-ink/20 bg-surface">
+        <summary className="cursor-pointer px-5 py-4 text-sm font-semibold text-ink">Contract details, payouts, performance, and on-chain record</summary>
+        <div className="space-y-6 border-t border-rule p-5">
       <section className="grid gap-px overflow-hidden rounded-[8px] border-2 border-ink/20 bg-rule md:grid-cols-2">
         <InfoCell label="Status">
           <StatusPill status={contract.status} />
@@ -163,6 +172,8 @@ export function ContractPanel({
           <p className="mt-2 text-sm text-muted">Escrow has not been funded yet.</p>
         )}
       </section>
+        </div>
+      </details>
     </div>
   );
 }
@@ -173,28 +184,35 @@ function DeliverableWorkflow({
   busy,
   onSubmit,
   onReview,
+  onPublish,
+  onConnectYouTube,
 }: {
   contract: EnrichedAgreement;
   variant: "sponsor" | "creator";
   busy?: boolean;
-  onSubmit?: (input: DeliverableSubmissionInput) => void;
+  onSubmit?: (checkpoint: "promo" | "final_cut", file: File, notes: string, onProgress: (value: number) => void) => Promise<void>;
   onReview?: (submissionId: string, input: DeliverableReviewInput) => void;
+  onPublish?: (input: { method: "manual"; youtubeUrl: string } | { method: "service"; title: string; description: string }) => Promise<void>;
+  onConnectYouTube?: () => Promise<void>;
 }) {
   const latest = contract.workflow.latestSubmission;
-  const [proofUrl, setProofUrl] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [progress, setProgress] = useState(0);
   const [notes, setNotes] = useState("");
-  const [evidenceUrl, setEvidenceUrl] = useState("");
-  const [evidenceLabel, setEvidenceLabel] = useState("");
   const [attested, setAttested] = useState(false);
   const [reviewComment, setReviewComment] = useState("");
-  const maySubmit = variant === "creator" && (contract.workflow.creatorAction === "submit" || contract.workflow.creatorAction === "revise");
+  const [manualUrl, setManualUrl] = useState("");
+  const [failedCriteria, setFailedCriteria] = useState<string[]>([]);
+  const creatorAction = contract.workflow.creatorAction;
+  const maySubmit = variant === "creator" && !!creatorAction && creatorAction !== "accept" && creatorAction !== "publish";
+  const checkpoint: "promo" | "final_cut" = creatorAction?.includes("final_cut") ? "final_cut" : "promo";
   const mayReview = variant === "sponsor" && contract.workflow.sponsorAction === "review" && latest;
 
   return (
     <section className="rounded-[8px] border-2 border-ink/20 bg-surface p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-medium text-ink">Deliverable workflow</h2>
+          <h2 className="text-lg font-medium text-ink">Next step</h2>
           <p className="mt-1 text-sm text-muted">Current step: {contract.workflow.currentStep.replaceAll("_", " ")}</p>
         </div>
         <StatusPill status={contract.workflow.deliveryStatus} />
@@ -208,7 +226,8 @@ function DeliverableWorkflow({
       {latest ? (
         <div className="mt-5 rounded-[6px] border border-rule bg-canvas p-4 text-sm">
           <div className="flex items-center justify-between"><strong>Submission v{latest.version}</strong><StatusPill status={latest.status} /></div>
-          <a className="mt-2 block break-all text-accent underline" href={latest.proofUrl} target="_blank" rel="noreferrer">{latest.proofUrl}</a>
+          {latest.upload ? <a className="mt-2 block text-accent underline" href={`/api/contracts/${contract.id}/artifacts/${latest.id}/content`} target="_blank" rel="noreferrer">Preview {latest.upload.fileName}</a> : null}
+          {latest.proofUrl ? <a className="mt-2 block break-all text-accent underline" href={latest.proofUrl} target="_blank" rel="noreferrer">{latest.proofUrl}</a> : null}
           {latest.notes ? <p className="mt-2 whitespace-pre-wrap text-muted">{latest.notes}</p> : null}
           {latest.evidence.map((item) => <a key={item.id} className="mt-2 block break-all text-accent underline" href={item.url} target="_blank" rel="noreferrer">{item.label ?? item.url}</a>)}
           {latest.isLate ? <p className="mt-2 text-[#8a3a2a]">Submitted after the contract deadline.</p> : null}
@@ -224,7 +243,7 @@ function DeliverableWorkflow({
             {contract.deliverableSubmissions.slice(1).map((submission) => (
               <div key={submission.id} className="rounded-[6px] border border-rule p-3">
                 <div className="flex justify-between"><strong>Version {submission.version}</strong><StatusPill status={submission.status} /></div>
-                <a className="mt-2 block break-all text-accent underline" href={submission.proofUrl} target="_blank" rel="noreferrer">{submission.proofUrl}</a>
+                {submission.upload ? <a className="mt-2 block text-accent underline" href={`/api/contracts/${contract.id}/artifacts/${submission.id}/content`} target="_blank" rel="noreferrer">{submission.upload.fileName}</a> : null}
                 {submission.reviews.map((review) => review.comment ? <p key={review.id} className="mt-2 text-muted">{review.comment}</p> : null)}
               </div>
             ))}
@@ -233,24 +252,40 @@ function DeliverableWorkflow({
       ) : null}
 
       {maySubmit ? (
-        <form className="mt-5 space-y-4" onSubmit={(event) => { event.preventDefault(); onSubmit?.({ proofUrl, notes: notes || undefined, evidence: evidenceUrl ? [{ url: evidenceUrl, label: evidenceLabel || undefined }] : [], attested: true }); }}>
-          <Field label="Deliverable URL" required><Input type="url" value={proofUrl} onChange={(event) => setProofUrl(event.target.value)} required placeholder="https://youtube.com/..." /></Field>
+        <form className="mt-5 space-y-4" onSubmit={async (event) => { event.preventDefault(); if (file) await onSubmit?.(checkpoint, file, notes, setProgress); }}>
+          <p className="rounded-[6px] bg-accent-soft p-3 text-sm text-ink">{checkpoint === "promo" ? contract.promoRequirements ?? "Upload the promotional concept or script for private review." : contract.finalCutRequirements ?? "Upload the complete pre-publication final cut."}</p>
+          <Field label={checkpoint === "promo" ? "Promotional concept file" : "Private final-cut video"} required><Input type="file" accept={checkpoint === "final_cut" ? "video/mp4,video/quicktime,video/webm" : "video/*,image/*,.pdf,.txt,.doc,.docx"} onChange={(event) => setFile(event.target.files?.[0] ?? null)} required /></Field>
           <Field label="Submission notes"><Textarea rows={4} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Where the integration appears, review notes, or supporting context" /></Field>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Supporting evidence URL"><Input type="url" value={evidenceUrl} onChange={(event) => setEvidenceUrl(event.target.value)} placeholder="https://drive.google.com/..." /></Field>
-            <Field label="Evidence label"><Input value={evidenceLabel} onChange={(event) => setEvidenceLabel(event.target.value)} placeholder="Analytics screenshot" /></Field>
-          </div>
           <label className="flex gap-2 text-sm text-ink"><input type="checkbox" checked={attested} onChange={(event) => setAttested(event.target.checked)} />I confirm this is the deliverable covered by this contract.</label>
-          <Button type="submit" disabled={busy || !proofUrl || !attested}>{contract.workflow.creatorAction === "revise" ? "Submit revision" : "Submit deliverable"}</Button>
+          {progress > 0 ? <div className="h-2 overflow-hidden rounded bg-rule"><div className="h-full bg-accent" style={{ width: `${progress}%` }} /></div> : null}
+          <Button type="submit" disabled={busy || !file || !attested}>{creatorAction?.startsWith("revise") ? "Upload revision" : `Submit ${checkpoint === "promo" ? "concept" : "final cut"}`}</Button>
         </form>
       ) : null}
 
       {mayReview ? (
         <div className="mt-5 space-y-4">
+          <div className="rounded-[6px] border border-rule p-3 text-sm">
+            <strong>Locked requirements</strong>
+            {(latest.checkpoint === "promo" ? contract.promoRequirements : contract.finalCutRequirements)?.split(/\r?\n|;/).filter(Boolean).map((criterion) => (
+              <label key={criterion} className="mt-2 flex gap-2"><input type="checkbox" checked={failedCriteria.includes(criterion)} onChange={(event) => setFailedCriteria((current) => event.target.checked ? [...current, criterion] : current.filter((item) => item !== criterion))} />Mark unmet: {criterion}</label>
+            ))}
+          </div>
           <Field label="Review comment"><Textarea rows={4} value={reviewComment} onChange={(event) => setReviewComment(event.target.value)} placeholder="Feedback for the creator" /></Field>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" disabled={busy || !reviewComment.trim()} onClick={() => onReview?.(latest.id, { decision: "changes_requested", comment: reviewComment })}>Request changes</Button>
-            <Button type="button" disabled={busy} onClick={() => { if (window.confirm("Approve this proof and irreversibly release the base payout?")) onReview?.(latest.id, { decision: "approved", comment: reviewComment || undefined }); }}>Approve and release payout</Button>
+            <Button type="button" variant="secondary" disabled={busy || !reviewComment.trim() || failedCriteria.length === 0} onClick={() => onReview?.(latest.id, { decision: "changes_requested", comment: reviewComment, failedCriteria })}>Request changes</Button>
+            <Button type="button" disabled={busy} onClick={() => { if (window.confirm("Approve this private artifact and irreversibly release its milestone payment?")) onReview?.(latest.id, { decision: "approved", comment: reviewComment || undefined, failedCriteria: [] }); }}>Approve milestone</Button>
+          </div>
+        </div>
+      ) : null}
+
+      {variant === "creator" && creatorAction === "publish" ? (
+        <div className="mt-5 space-y-4">
+          <p className="rounded-[6px] bg-accent-soft p-3 text-sm text-ink">The sponsor approved the exact private final cut. Publish that file through the connected channel, or submit its public YouTube URL for fingerprint verification. There is no second sponsor veto.</p>
+          <Button type="button" variant="secondary" disabled={busy} onClick={() => onConnectYouTube?.()}>Connect YouTube channel</Button>
+          <Button type="button" disabled={busy} onClick={() => onPublish?.({ method: "service", title: contract.title ?? "Sponsored video", description: contract.publicationRequirements ?? "" })}>Publish approved file through YouTube</Button>
+          <div className="flex gap-2">
+            <Input type="url" value={manualUrl} onChange={(event) => setManualUrl(event.target.value)} placeholder="https://youtube.com/watch?v=..." />
+            <Button type="button" variant="secondary" disabled={busy || !manualUrl} onClick={() => onPublish?.({ method: "manual", youtubeUrl: manualUrl })}>Verify manual upload</Button>
           </div>
         </div>
       ) : null}

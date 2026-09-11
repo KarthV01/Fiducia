@@ -8,8 +8,6 @@ import type {
   CreatorDashboard,
   CreatorProfile,
   EnrichedAgreement,
-  DeliverableSubmission,
-  DeliverableSubmissionInput,
   DeliverableReviewInput,
   MetricObservationInput,
   MutationResult,
@@ -92,10 +90,25 @@ export const api = {
       body: JSON.stringify(input),
     }),
   reviewDeliverable: (sponsorId: string, id: string, submissionId: string, input: DeliverableReviewInput) =>
-    request<MutationResult>(`/api/sponsors/${sponsorId}/contracts/${id}/deliverables/${submissionId}/review`, {
+    request<MutationResult>(`/api/sponsors/${sponsorId}/contracts/${id}/submissions/${submissionId}/review`, {
       method: "POST",
       body: JSON.stringify(input),
     }),
+  uploadCheckpointFile: async (creatorId: string, agreementId: string, checkpoint: "promo" | "final_cut", file: File, onProgress: (percent: number) => void) => {
+    const upload = await request<{ id: string; receivedSize: string }>(`/api/creators/${creatorId}/contracts/${agreementId}/uploads`, { method: "POST", body: JSON.stringify({ checkpoint, fileName: file.name, mimeType: file.type || "application/octet-stream", totalSize: String(file.size) }) });
+    const chunkSize = 4 * 1024 * 1024;
+    let offset = Number(upload.receivedSize);
+    while (offset < file.size) {
+      const chunk = file.slice(offset, Math.min(offset + chunkSize, file.size));
+      const response = await fetch(`/api/creators/${creatorId}/contracts/${agreementId}/uploads/${upload.id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/octet-stream", "Upload-Offset": String(offset) }, body: chunk });
+      if (!response.ok) throw new ApiError(response.status, `Upload failed (${response.status})`);
+      offset = Number(response.headers.get("Upload-Offset") ?? offset + chunk.size);
+      onProgress(Math.round((offset / file.size) * 100));
+    }
+    await request(`/api/creators/${creatorId}/contracts/${agreementId}/uploads/${upload.id}/complete`, { method: "POST" });
+    return upload.id;
+  },
+  submitCheckpoint: (creatorId: string, agreementId: string, checkpoint: "promo" | "final_cut", input: { uploadId: string; notes?: string; attested: true }) => request(`/api/creators/${creatorId}/contracts/${agreementId}/checkpoints/${checkpoint}/submissions`, { method: "POST", body: JSON.stringify(input) }),
   recordBrandMetric: (sponsorId: string, id: string, input: MetricObservationInput) =>
     request<MutationResult>(`/api/sponsors/${sponsorId}/contracts/${id}/metrics`, {
       method: "POST",
@@ -111,14 +124,6 @@ export const api = {
     request<{ invites: ContractInvite[] }>(`/api/creators/${creatorId}/invites`),
   acceptInvite: (creatorId: string, inviteId: string) =>
     request<AcceptInviteResult>(`/api/creators/${creatorId}/invites/${inviteId}/accept`, { method: "POST" }),
-  submitDeliverable: (creatorId: string, id: string, input: DeliverableSubmissionInput) =>
-    request<{ submission: DeliverableSubmission; agreement: EnrichedAgreement }>(
-      `/api/creators/${creatorId}/contracts/${id}/deliverables`,
-      { method: "POST", body: JSON.stringify(input) },
-    ),
-  recordCreatorMetric: (creatorId: string, id: string, input: MetricObservationInput) =>
-    request<MutationResult>(`/api/creators/${creatorId}/contracts/${id}/metrics`, {
-      method: "POST",
-      body: JSON.stringify({ source: "simulation", ...input }),
-    }),
+  connectYouTube: (creatorId: string, agreementId: string) => request<{ authorizationUrl: string }>(`/api/creators/${creatorId}/contracts/${agreementId}/youtube/connect`, { method: "POST" }),
+  createPublication: (creatorId: string, agreementId: string, input: { method: "manual"; youtubeUrl: string } | { method: "service"; title: string; description: string }) => request(`/api/creators/${creatorId}/contracts/${agreementId}/publications`, { method: "POST", body: JSON.stringify(input) }),
 };

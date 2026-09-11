@@ -94,8 +94,11 @@ export function ContractTable({
 function actionLabel(action: string) {
   return ({
     accept: "Accept contract",
-    submit: "Submit deliverable",
-    revise: "Submit revision",
+    submit_promo: "Upload promotional concept",
+    revise_promo: "Upload concept revision",
+    submit_final_cut: "Upload private final cut",
+    revise_final_cut: "Upload final-cut revision",
+    publish: "Publish approved video",
     review: "Review deliverable",
   } as Record<string, string>)[action] ?? "View full contract";
 }

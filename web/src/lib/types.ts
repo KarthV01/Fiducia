@@ -97,13 +97,19 @@ export type DeliverableReview = {
   comment: string | null;
   approvalTxHash: string | null;
   reviewedAt: string;
+  failedCriteriaJson?: string | null;
 };
+
+export type UploadSession = { id: string; checkpoint: "promo" | "final_cut"; status: string; fileName: string; mimeType: string; totalSize: string; receivedSize: string; sha256: string | null };
 
 export type DeliverableSubmission = {
   id: string;
   version: number;
   status: "submitted" | "changes_requested" | "approved";
-  proofUrl: string;
+  proofUrl: string | null;
+  checkpoint: "promo" | "final_cut";
+  uploadId: string | null;
+  upload: UploadSession | null;
   notes: string | null;
   contentHash: string;
   submittedAt: string;
@@ -114,9 +120,9 @@ export type DeliverableSubmission = {
 };
 
 export type ContractWorkflow = {
-  deliveryStatus: "awaiting_submission" | "in_review" | "changes_requested" | "approved";
-  currentStep: "accept_contract" | "submit_deliverable" | "review_deliverable" | "revise_deliverable" | "track_performance" | "completed";
-  creatorAction: "accept" | "submit" | "revise" | null;
+  deliveryStatus: string;
+  currentStep: "accept_contract" | "submit_promo" | "review_promo" | "revise_promo" | "submit_final_cut" | "review_final_cut" | "revise_final_cut" | "publish" | "retention" | "track_performance" | "completed";
+  creatorAction: "accept" | "submit_promo" | "revise_promo" | "submit_final_cut" | "revise_final_cut" | "publish" | null;
   sponsorAction: "review" | null;
   completedSteps: string[];
   remainingSteps: string[];
@@ -182,6 +188,14 @@ export type EnrichedAgreement = {
   financials: Financials;
   deliverableSubmissions: DeliverableSubmission[];
   workflow: ContractWorkflow;
+  basePayoutAmount: string | null;
+  performancePoolAmount: string | null;
+  promoRequirements: string | null;
+  finalCutRequirements: string | null;
+  publicationRequirements: string | null;
+  publicationDeadline: string | null;
+  retentionDays: number;
+  publications: Array<{ id: string; method: string; status: string; youtubeUrl: string | null; fingerprintScore: number | null }>;
 };
 
 export type DeliverableSubmissionInput = {
@@ -194,6 +208,7 @@ export type DeliverableSubmissionInput = {
 export type DeliverableReviewInput = {
   decision: "changes_requested" | "approved";
   comment?: string;
+  failedCriteria: string[];
 };
 
 export type ContractInvite = {
@@ -262,6 +277,11 @@ export type CreateContractInput = {
     threshold: string;
     bonusAmount: string;
   }>;
+  promoRequirements: string;
+  finalCutRequirements: string;
+  publicationRequirements: string;
+  retentionDays: number;
+  meteredViews?: { startsAtViews: string; amountPerThousandViews: string; maximumAmount: string };
 };
 
 export type MetricObservationInput = {
