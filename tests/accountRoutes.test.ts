@@ -192,6 +192,23 @@ describe("email-backed account API", () => {
     expect(approval.json().agreement.workflow.currentStep).toBe("submit_final_cut");
     expect(chain.approvedDeliveries).toHaveLength(1);
     expect(chain.approvedDeliveries[0].artifactHash).toBe(revision.json().contentHash);
+
+    const invalidFinalCut = await app.inject({
+      method: "POST",
+      url: `/api/creators/${creator.id}/contracts/${agreementId}/uploads`,
+      headers: { cookie: creatorUser.cookie },
+      payload: { checkpoint: "final_cut", fileName: "final-cut.pdf", mimeType: "application/pdf", totalSize: "100" },
+    });
+    expect(invalidFinalCut.statusCode).toBe(409);
+    expect(invalidFinalCut.json().message).toContain("must be an MP4, MOV, or WebM video");
+
+    const validFinalCut = await app.inject({
+      method: "POST",
+      url: `/api/creators/${creator.id}/contracts/${agreementId}/uploads`,
+      headers: { cookie: creatorUser.cookie },
+      payload: { checkpoint: "final_cut", fileName: "final-cut.mp4", mimeType: "video/mp4", totalSize: "100" },
+    });
+    expect(validFinalCut.statusCode).toBe(201);
   });
 });
 

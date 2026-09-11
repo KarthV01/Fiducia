@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ChangeEvent, type DragEvent, type ReactNode } from "react";
 import { formatDate, formatNumber, partyName, truncateAddress, truncateHash } from "../lib/format";
 import { formatUsdc } from "../lib/money";
 import type { DeliverableReviewInput, EnrichedAgreement, MetricObservationInput, UploadSession } from "../lib/types";
@@ -204,6 +204,7 @@ function DeliverableWorkflow({
   const [manualUrl, setManualUrl] = useState("");
   const [failedCriteria, setFailedCriteria] = useState<string[]>([]);
   const [uploadAbort, setUploadAbort] = useState<AbortController | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const creatorAction = contract.workflow.creatorAction;
   const maySubmit = variant === "creator" && !!creatorAction && creatorAction !== "accept" && creatorAction !== "publish";
   const checkpoint: "promo" | "final_cut" = creatorAction?.includes("final_cut") ? "final_cut" : "promo";
@@ -253,9 +254,23 @@ function DeliverableWorkflow({
       ) : null}
 
       {maySubmit ? (
-        <form className="mt-5 space-y-4" onSubmit={async (event) => { event.preventDefault(); if (file) { const controller = new AbortController(); setUploadAbort(controller); const resumable = contract.uploadSessions.find((upload) => upload.status === "uploading" && upload.checkpoint === checkpoint && upload.fileName === file.name && upload.totalSize === String(file.size)); try { await onSubmit?.(checkpoint, file, notes, setProgress, resumable, controller.signal); } finally { setUploadAbort(null); } } }}>
+        <form className="mt-5 space-y-4" onSubmit={async (event) => { event.preventDefault(); if (file) { const controller = new AbortController(); setUploadAbort(controller); const resumable = contract.uploadSessions.find((upload) => upload.status === "uploading" && upload.checkpoint === checkpoint && upload.fileName === file.name && upload.totalSize === String(file.size)); try { await onSubmit?.(checkpoint, file, notes, setProgress, resumable, controller.signal); setFile(null); setNotes(""); setAttested(false); setProgress(0); } finally { setUploadAbort(null); } } }}>
           <p className="rounded-[6px] bg-accent-soft p-3 text-sm text-ink">{checkpoint === "promo" ? contract.promoRequirements ?? "Upload the promotional concept or script for private review." : contract.finalCutRequirements ?? "Upload the complete pre-publication final cut."}</p>
-          <Field label={checkpoint === "promo" ? "Promotional concept file" : "Private final-cut video"} required><Input type="file" accept={checkpoint === "final_cut" ? "video/mp4,video/quicktime,video/webm" : "video/*,image/*,.pdf,.txt,.doc,.docx"} onChange={(event) => setFile(event.target.files?.[0] ?? null)} required /></Field>
+          <UploadDropzone
+            checkpoint={checkpoint}
+            file={file}
+            error={fileError}
+            onFile={(nextFile) => {
+              setFile(nextFile);
+              setFileError(null);
+              setProgress(0);
+            }}
+            onError={(nextError) => {
+              setFile(null);
+              setFileError(nextError);
+              setProgress(0);
+            }}
+          />
           <Field label="Submission notes"><Textarea rows={4} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Where the integration appears, review notes, or supporting context" /></Field>
           <label className="flex gap-2 text-sm text-ink"><input type="checkbox" checked={attested} onChange={(event) => setAttested(event.target.checked)} />I confirm this is the deliverable covered by this contract.</label>
           {progress > 0 ? <div className="h-2 overflow-hidden rounded bg-rule"><div className="h-full bg-accent" style={{ width: `${progress}%` }} /></div> : null}
@@ -292,6 +307,121 @@ function DeliverableWorkflow({
       ) : null}
     </section>
   );
+}
+
+const FINAL_CUT_MIME_TYPES = ["video/mp4", "video/quicktime", "video/webm"];
+const PROMO_MIME_TYPES = [
+  ...FINAL_CUT_MIME_TYPES,
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "application/pdf",
+  "text/plain",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+];
+const MAX_UPLOAD_BYTES = 5_000_000_000;
+
+function UploadDropzone({
+  checkpoint,
+  file,
+  error,
+  onFile,
+  onError,
+}: {
+  checkpoint: "promo" | "final_cut";
+  file: File | null;
+  error: string | null;
+  onFile: (file: File) => void;
+  onError: (message: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const isFinalCut = checkpoint === "final_cut";
+  const acceptedMimeTypes = isFinalCut ? FINAL_CUT_MIME_TYPES : PROMO_MIME_TYPES;
+  const accept = isFinalCut
+    ? FINAL_CUT_MIME_TYPES.join(",")
+    : `${PROMO_MIME_TYPES.join(",")},.pdf,.txt,.doc,.docx`;
+
+  const selectFile = (candidate?: File) => {
+    if (!candidate) return;
+    if (!acceptedMimeTypes.includes(candidate.type)) {
+      onError(
+        isFinalCut
+          ? "Choose a video in MP4, MOV, or WebM format."
+          : "Choose a supported video, image, PDF, text, or Word file.",
+      );
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+    if (candidate.size <= 0 || candidate.size > MAX_UPLOAD_BYTES) {
+      onError("Choose a file larger than 0 bytes and no larger than 5 GB.");
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+    onFile(candidate);
+  };
+
+  const handleInput = (event: ChangeEvent<HTMLInputElement>) => selectFile(event.target.files?.[0]);
+  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setDragging(false);
+    selectFile(event.dataTransfer.files?.[0]);
+  };
+
+  return (
+    <div>
+      <div className="mb-1.5 text-sm text-ink">
+        {isFinalCut ? "Private final-cut video" : "Promotional concept file"}
+        <span className="ml-0.5 text-[#c0392b]" aria-hidden="true">*</span>
+      </div>
+      <input ref={inputRef} className="sr-only" type="file" accept={accept} onChange={handleInput} />
+      <div
+        className={`rounded-[8px] border-2 border-dashed px-5 py-7 text-center transition-colors ${dragging ? "border-accent bg-accent-soft" : error ? "border-[#c0392b] bg-[#f4d7cf]/35" : "border-ink/30 bg-canvas/45 hover:border-accent hover:bg-accent-soft/45"}`}
+        onDragEnter={(event) => { event.preventDefault(); setDragging(true); }}
+        onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setDragging(true); }}
+        onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false); }}
+        onDrop={handleDrop}
+      >
+        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full border-2 border-ink/20 bg-surface text-accent" aria-hidden="true">
+          <UploadIcon />
+        </div>
+        {file ? (
+          <>
+            <p className="mt-3 break-all text-sm font-semibold text-ink">{file.name}</p>
+            <p className="mt-1 text-xs text-muted">{formatFileSize(file.size)}</p>
+            <button type="button" className="mt-3 text-sm font-medium text-accent underline underline-offset-2" onClick={() => inputRef.current?.click()}>Choose a different file</button>
+          </>
+        ) : (
+          <>
+            <p className="mt-3 text-sm font-semibold text-ink">Drop your {isFinalCut ? "video" : "file"} here</p>
+            <p className="mt-1 text-xs text-muted">or</p>
+            <Button type="button" variant="secondary" className="mt-3" onClick={() => inputRef.current?.click()}>Browse files</Button>
+          </>
+        )}
+        <p className="mt-3 text-xs text-muted">
+          {isFinalCut ? "MP4, MOV, or WebM video only" : "Video, image, PDF, TXT, DOC, or DOCX"} · 5 GB max
+        </p>
+      </div>
+      {error ? <p className="mt-1.5 text-xs text-[#c0392b]" role="alert">{error}</p> : null}
+    </div>
+  );
+}
+
+function UploadIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 16V4" />
+      <path d="m7 9 5-5 5 5" />
+      <path d="M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" />
+    </svg>
+  );
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1_000_000) return `${Math.max(1, Math.round(bytes / 1_000))} KB`;
+  if (bytes < 1_000_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
+  return `${(bytes / 1_000_000_000).toFixed(2)} GB`;
 }
 
 function InfoCell({ label, children }: { label: string; children: ReactNode }) {

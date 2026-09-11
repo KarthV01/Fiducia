@@ -8,7 +8,8 @@ import { getAgreement } from "./agreementService.js";
 import type { DeliverableStorage } from "./deliverableStorage.js";
 
 const MAX_UPLOAD = 5_000_000_000n;
-const allowedMime = /^(video\/(mp4|quicktime|webm)|image\/(png|jpeg|webp)|application\/pdf|text\/plain|application\/(msword|vnd\.openxmlformats-officedocument\.wordprocessingml\.document))$/;
+const allowedVideoMime = /^(video\/(mp4|quicktime|webm))$/;
+const allowedPromoMime = /^(video\/(mp4|quicktime|webm)|image\/(png|jpeg|webp)|application\/pdf|text\/plain|application\/(msword|vnd\.openxmlformats-officedocument\.wordprocessingml\.document))$/;
 
 export async function createUploadSession(prisma: PrismaClient, agreementId: string, creatorProfileId: string, input: {
   checkpoint: string; fileName: string; mimeType: string; totalSize: string;
@@ -18,7 +19,12 @@ export async function createUploadSession(prisma: PrismaClient, agreementId: str
   if (!Object.values(CHECKPOINT).includes(input.checkpoint as typeof CHECKPOINT[keyof typeof CHECKPOINT])) throw conflict("Unknown checkpoint.");
   const total = BigInt(input.totalSize);
   if (total <= 0n || total > MAX_UPLOAD) throw conflict("Upload must be between 1 byte and 5 GB.");
-  if (!allowedMime.test(input.mimeType)) throw conflict("This file type is not supported for private review.");
+  const allowedMime = input.checkpoint === CHECKPOINT.finalCut ? allowedVideoMime : allowedPromoMime;
+  if (!allowedMime.test(input.mimeType)) {
+    throw conflict(input.checkpoint === CHECKPOINT.finalCut
+      ? "The private final cut must be an MP4, MOV, or WebM video."
+      : "This file type is not supported for private review.");
+  }
   const id = randomUUID();
   return prisma.uploadSession.create({ data: { id, agreementId, creatorProfileId, checkpoint: input.checkpoint, fileName: input.fileName, mimeType: input.mimeType, totalSize: input.totalSize, storageKey: id } });
 }
