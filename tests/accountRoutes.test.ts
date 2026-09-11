@@ -162,6 +162,11 @@ describe("email-backed account API", () => {
 
     const first = await uploadCheckpoint(app, creatorUser.cookie, creator.id, agreementId, "promo", "first concept");
     expect(first.statusCode).toBe(201);
+    const unauthenticatedPreview = await app.inject({ method: "GET", url: `/api/contracts/${agreementId}/artifacts/${first.json().id}/content` });
+    expect(unauthenticatedPreview.statusCode).toBe(401);
+    const sponsorPreview = await app.inject({ method: "GET", url: `/api/contracts/${agreementId}/artifacts/${first.json().id}/content`, headers: { cookie: sponsorUser.cookie, range: "bytes=0-4" } });
+    expect(sponsorPreview.statusCode, sponsorPreview.body).toBe(206);
+    expect(sponsorPreview.headers["content-range"]).toBe("bytes 0-4/13");
 
     const changes = await app.inject({
       method: "POST",

@@ -88,7 +88,23 @@ The UI talks to authenticated APIs:
 - Creator workspaces: `/api/creators/:creatorId/*`
 - Creator search: `/api/creators/search?q=...`
 
-Sponsors create contract invitations by searching creator account names/handles. A contract remains a draft invitation until the selected creator accepts it; acceptance creates/funds escrow and locks the full cap from the sponsor's generated local wallet. The creator then submits an immutable deliverable URL and proof hash for sponsor review. The sponsor can request a revision or approve the latest submission; approval anchors the proof hash and releases the base payout in one transaction. Use **Record performance** on an active contract to submit integer metric values and release bonuses.
+Sponsors create contract invitations by searching creator account names/handles. A contract remains a draft invitation until the selected creator accepts it; acceptance creates/funds escrow and locks the full cap from the sponsor's generated local wallet. The creator privately uploads immutable concept and final-cut versions. Sponsor approval anchors the artifact snapshot hash and atomically releases the 10% and 20% work tranches. Verified publication releases 60%; retention releases the final 10%.
+
+Private files are streamed to `DELIVERABLE_STORAGE_DIR` in local development and served only to the contract's creator and sponsor with HTTP Range support. The storage service is behind a `DeliverableStorage` interface for a later S3/R2 adapter. Creator-entered metrics cannot release funds. The legacy sponsor simulation route only works when `ENABLE_SIMULATION_METRICS=true`.
+
+## YouTube publication and monitoring
+
+YouTube uses a separate OAuth connection with upload and channel-read scopes. Set `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `YOUTUBE_REDIRECT_URI`, and a base64-encoded 32-byte `YOUTUBE_TOKEN_ENCRYPTION_KEY`. Refresh tokens are encrypted with AES-256-GCM. Service publication streams the exact approved final cut into a resumable YouTube upload session; the publication tranche is released only when the monitor observes a processed, public video.
+
+Manual publication is disabled by default. When `ENABLE_MANUAL_FINGERPRINT=true`, `FINGERPRINT_WORKER_URL` must point to an isolated yt-dlp/FFmpeg worker. The worker reports versioned fingerprint scores to `/internal/publications/:publicationId/verification`; failures remain in `verification_required` with funds frozen.
+
+Run trusted jobs with `Authorization: Bearer $INTERNAL_JOB_TOKEN`:
+
+- `POST /internal/jobs/youtube-monitor`
+- `POST /internal/jobs/settle-performance`
+- `POST /internal/jobs/refund-expired`
+
+The monitor requires `YOUTUBE_API_KEY`, two consecutive compliant observations before performance settlement, and never claws back released work payments. Fixed bonuses and capped per-thousand-view rules settle independently. Expiry jobs refund only unreleased escrow.
 
 ## Account API
 
@@ -141,7 +157,7 @@ npm run contracts:build
 npm run deploy:local
 ```
 
-Submit simulated metric data and release eligible bonus payouts:
+In local development only, submit simulated metric data (requires `ENABLE_SIMULATION_METRICS=true`):
 
 ```bash
 curl -X POST http://localhost:3000/agreements/{agreementId}/metrics \

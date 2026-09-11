@@ -383,6 +383,10 @@ export class FakePrisma {
       Object.assign(row, data, { updatedAt: new Date() });
       return this.hydrateSubmission(row);
     },
+    findUnique: async ({ where }: { where: { id: string } }) => {
+      const row = this.deliverableSubmissions.find((item) => item.id === where.id);
+      return row ? this.hydrateSubmission(row) : null;
+    },
   };
 
   uploadSession = {
