@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
+import { randomUUID } from "node:crypto";
 import type { Hex } from "viem";
 import type { ChainClient } from "../blockchain/client.js";
 import { AGREEMENT_STATUS, PARTICIPANT_ROLE, PAYOUT_KIND, PAYOUT_STATUS } from "../domain/status.js";
@@ -6,6 +7,7 @@ import { buildTermsSnapshot, hashTerms, type AgreementTermsSource } from "../dom
 import { conditionIsSatisfied } from "../domain/payoutEvaluator.js";
 import type { CreateAgreementInput, MetricObservationInput } from "../domain/validation.js";
 import { conflict, notFound, serviceUnavailable } from "../http/errors.js";
+import { agreementKey } from "../blockchain/ids.js";
 
 export const agreementInclude = {
   participants: {
@@ -76,6 +78,13 @@ export async function createAgreementFromInput(
         totalCapAmount: input.totalCapAmount,
         tokenAddress: input.tokenAddress,
         status: AGREEMENT_STATUS.draft,
+        basePayoutAmount: input.basePayoutAmount,
+        performancePoolAmount: input.performancePoolAmount,
+        promoRequirements: input.promoRequirements,
+        finalCutRequirements: input.finalCutRequirements,
+        publicationRequirements: input.publicationRequirements,
+        publicationDeadline: input.publicationDeadline ? new Date(input.publicationDeadline) : undefined,
+        retentionDays: input.retentionDays,
       },
     });
 
@@ -128,6 +137,10 @@ export async function createAgreementFromInput(
             : undefined,
         },
       });
+    }
+
+    for (const rule of input.performanceRules) {
+      await tx.performanceRule.create({ data: { agreementId: created.id, ...rule } });
     }
 
     return created;
@@ -213,16 +226,21 @@ export async function fundAgreementEscrow(
   } as AgreementTermsSource;
   const termsHash = (agreement.termsHash ?? hashTerms(buildTermsSnapshot(termsSource))) as Hex;
 
+  const idempotencyKey = `create-escrow:${agreement.id}`;
+  const priorOperation = await prisma.chainOperation.findUnique({ where: { idempotencyKey } });
+  const operation = priorOperation ?? await prisma.chainOperation.create({ data: { id: randomUUID(), agreementId: agreement.id, kind: "create_escrow", idempotencyKey, payloadJson: JSON.stringify({ tokenAddress, totalCapAmount: agreement.totalCapAmount, termsHash }) } });
   let escrow: Awaited<ReturnType<ChainClient["createEscrow"]>>;
   try {
-    escrow = await chain.createEscrow({
+    escrow = operation.status === "confirmed" && operation.txHash ? { txHash: operation.txHash as Hex, chainId: chain.chainId, escrowAddress: chain.escrowAddress, agreementKey: agreementKey(agreement.id) } : await chain.createEscrow({
       agreementId: agreement.id,
       brand: brand.walletAddress,
       creator: creator.walletAddress,
       token: tokenAddress,
       totalCapAmount: agreement.totalCapAmount,
       termsHash,
+      refundAfter: Math.floor((agreement.publicationDeadline ?? agreement.deadline).getTime() / 1000),
     });
+    if (operation.status !== "confirmed") await prisma.chainOperation.update({ where: { id: operation.id }, data: { status: "confirmed", txHash: escrow.txHash } });
   } catch (error) {
     throw serviceUnavailable(
       `Unable to create local escrow. Confirm Anvil is running, contracts are deployed, and the sponsor wallet has approved the escrow contract. ${(error as Error).message}`,

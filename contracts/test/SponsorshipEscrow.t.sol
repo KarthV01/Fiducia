@@ -8,6 +8,7 @@ interface Vm {
     function prank(address sender) external;
     function expectRevert(bytes4 selector) external;
     function expectEmit(bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData) external;
+    function warp(uint256 timestamp) external;
 }
 
 contract SponsorshipEscrowTest {
@@ -33,7 +34,7 @@ contract SponsorshipEscrowTest {
         bytes32 termsHash
     );
     event PayoutReleased(bytes32 indexed agreementId, bytes32 indexed payoutId, address indexed creator, uint256 amount);
-    event DeliveryApproved(bytes32 indexed agreementId, bytes32 indexed submissionHash, bytes32 indexed payoutId);
+    event CheckpointApproved(bytes32 indexed agreementId, bytes32 indexed checkpointId, bytes32 artifactHash, bytes32 payoutId);
 
     function setUp() public {
         token = new MockUSDC();
@@ -44,7 +45,7 @@ contract SponsorshipEscrowTest {
     }
 
     function testCreateEscrowFundsFullCap() public {
-        escrow.createEscrow(agreementId, brand, creator, address(token), cap, termsHash);
+        escrow.createEscrow(agreementId, brand, creator, address(token), cap, termsHash, uint64(block.timestamp + 1 days));
 
         (
             address storedBrand,
@@ -53,6 +54,7 @@ contract SponsorshipEscrowTest {
             uint256 storedCap,
             uint256 releasedAmount,
             bytes32 storedTermsHash,
+            uint64 storedRefundAfter,
             bool exists,
             bool active
         ) = escrow.escrows(agreementId);
@@ -63,6 +65,7 @@ contract SponsorshipEscrowTest {
         assertEq(storedCap, cap);
         assertEq(releasedAmount, 0);
         assertEq(storedTermsHash, termsHash);
+        assertTrue(storedRefundAfter > block.timestamp);
         assertTrue(exists);
         assertTrue(active);
         assertEq(escrow.capAmount(agreementId), cap);
@@ -74,11 +77,11 @@ contract SponsorshipEscrowTest {
         vm.expectEmit(true, true, true, true);
         emit EscrowCreated(agreementId, brand, creator, address(token), cap, termsHash);
 
-        escrow.createEscrow(agreementId, brand, creator, address(token), cap, termsHash);
+        escrow.createEscrow(agreementId, brand, creator, address(token), cap, termsHash, uint64(block.timestamp + 1 days));
     }
 
     function testReleasePayoutTransfersToCreator() public {
-        escrow.createEscrow(agreementId, brand, creator, address(token), cap, termsHash);
+        escrow.createEscrow(agreementId, brand, creator, address(token), cap, termsHash, uint64(block.timestamp + 1 days));
 
         uint256 amount = 500_000_000;
         vm.expectEmit(true, true, true, true);
@@ -91,26 +94,29 @@ contract SponsorshipEscrowTest {
     }
 
     function testApproveDeliveryAnchorsHashAndReleasesPayoutAtomically() public {
-        escrow.createEscrow(agreementId, brand, creator, address(token), cap, termsHash);
+        escrow.createEscrow(agreementId, brand, creator, address(token), cap, termsHash, uint64(block.timestamp + 1 days));
         bytes32 submissionHash = keccak256("submission-v1");
         uint256 amount = 500_000_000;
 
         vm.expectEmit(true, true, true, true);
-        emit DeliveryApproved(agreementId, submissionHash, payoutId);
-        escrow.approveDeliveryAndRelease(agreementId, submissionHash, payoutId, amount);
+        bytes32 checkpointId = keccak256("promo");
+        emit CheckpointApproved(agreementId, checkpointId, submissionHash, payoutId);
+        escrow.approveCheckpointAndRelease(agreementId, checkpointId, submissionHash, payoutId, amount);
 
-        assertEq(escrow.approvedDeliveryHash(agreementId), submissionHash);
+        assertEq(escrow.approvedCheckpointHash(agreementId, checkpointId), submissionHash);
         assertTrue(escrow.payoutReleased(agreementId, payoutId));
         assertEq(token.balanceOf(creator), amount);
     }
 
     function testCannotApproveTwoDeliverables() public {
-        escrow.createEscrow(agreementId, brand, creator, address(token), cap, termsHash);
-        escrow.approveDeliveryAndRelease(agreementId, keccak256("submission-v1"), payoutId, 500_000_000);
+        escrow.createEscrow(agreementId, brand, creator, address(token), cap, termsHash, uint64(block.timestamp + 1 days));
+        bytes32 checkpointId = keccak256("promo");
+        escrow.approveCheckpointAndRelease(agreementId, checkpointId, keccak256("submission-v1"), payoutId, 500_000_000);
 
-        vm.expectRevert(SponsorshipEscrow.DeliveryAlreadyApproved.selector);
-        escrow.approveDeliveryAndRelease(
+        vm.expectRevert(SponsorshipEscrow.CheckpointAlreadyApproved.selector);
+        escrow.approveCheckpointAndRelease(
             agreementId,
+            checkpointId,
             keccak256("submission-v2"),
             keccak256("payout-2"),
             500_000_000
@@ -118,7 +124,7 @@ contract SponsorshipEscrowTest {
     }
 
     function testCannotReleaseSamePayoutTwice() public {
-        escrow.createEscrow(agreementId, brand, creator, address(token), cap, termsHash);
+        escrow.createEscrow(agreementId, brand, creator, address(token), cap, termsHash, uint64(block.timestamp + 1 days));
         escrow.releasePayout(agreementId, payoutId, 500_000_000);
 
         vm.expectRevert(SponsorshipEscrow.PayoutAlreadyReleased.selector);
@@ -126,21 +132,44 @@ contract SponsorshipEscrowTest {
     }
 
     function testCannotReleaseAboveCap() public {
-        escrow.createEscrow(agreementId, brand, creator, address(token), cap, termsHash);
+        escrow.createEscrow(agreementId, brand, creator, address(token), cap, termsHash, uint64(block.timestamp + 1 days));
         escrow.releasePayout(agreementId, payoutId, 7_500_000_000);
 
         vm.expectRevert(SponsorshipEscrow.CapExceeded.selector);
         escrow.releasePayout(agreementId, keccak256("payout-2"), 600_000_000);
     }
 
+    function testPublicationExtendsRefundDeadlineAndReleasesOnce() public {
+        uint64 initialDeadline = uint64(block.timestamp + 1 days);
+        uint64 measurementDeadline = uint64(block.timestamp + 30 days);
+        escrow.createEscrow(agreementId, brand, creator, address(token), cap, termsHash, initialDeadline);
+        bytes32 artifactHash = keccak256("approved-final-cut");
+        escrow.recordPublicationAndRelease(agreementId, artifactHash, payoutId, 4_800_000_000, measurementDeadline);
+        (,,,,,, uint64 refundAfter,,) = escrow.escrows(agreementId);
+        assertEq(refundAfter, measurementDeadline);
+        assertEq(escrow.approvedCheckpointHash(agreementId, keccak256("publication")), artifactHash);
+        assertEq(token.balanceOf(creator), 4_800_000_000);
+    }
+
+    function testRefundReturnsOnlyUnreleasedBalanceAfterDeadline() public {
+        uint64 deadline = uint64(block.timestamp + 1 days);
+        escrow.createEscrow(agreementId, brand, creator, address(token), cap, termsHash, deadline);
+        escrow.releasePayout(agreementId, payoutId, 800_000_000);
+        vm.warp(deadline);
+        vm.prank(brand);
+        escrow.refundRemaining(agreementId);
+        assertEq(token.balanceOf(brand), cap - 800_000_000);
+        assertEq(token.balanceOf(address(escrow)), 0);
+    }
+
     function testUnauthorizedCallerCannotCreateEscrow() public {
         vm.prank(attacker);
         vm.expectRevert(SponsorshipEscrow.Unauthorized.selector);
-        escrow.createEscrow(agreementId, brand, creator, address(token), cap, termsHash);
+        escrow.createEscrow(agreementId, brand, creator, address(token), cap, termsHash, uint64(block.timestamp + 1 days));
     }
 
     function testUnauthorizedCallerCannotReleasePayout() public {
-        escrow.createEscrow(agreementId, brand, creator, address(token), cap, termsHash);
+        escrow.createEscrow(agreementId, brand, creator, address(token), cap, termsHash, uint64(block.timestamp + 1 days));
 
         vm.prank(attacker);
         vm.expectRevert(SponsorshipEscrow.Unauthorized.selector);

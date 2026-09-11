@@ -34,6 +34,13 @@ export type AgreementTermsSource = {
   measurementWindowDays: number;
   totalCapAmount: string;
   tokenAddress: string | null;
+  basePayoutAmount?: string | null;
+  performancePoolAmount?: string | null;
+  promoRequirements?: string | null;
+  finalCutRequirements?: string | null;
+  publicationRequirements?: string | null;
+  publicationDeadline?: Date | null;
+  retentionDays?: number;
   participants: Array<{
     role: string;
     walletAddress: string;
@@ -57,6 +64,7 @@ export type AgreementTermsSource = {
       };
     };
   }>;
+  performanceRules?: Array<{ kind: string; threshold: string | null; amount: string | null; startsAtViews: string | null; amountPerThousandViews: string | null; maximumAmount: string | null }>;
 };
 
 export function buildTermsSnapshot(agreement: AgreementTermsSource): JsonValue {
@@ -68,6 +76,13 @@ export function buildTermsSnapshot(agreement: AgreementTermsSource): JsonValue {
     measurementWindowDays: agreement.measurementWindowDays,
     totalCapAmount: agreement.totalCapAmount,
     tokenAddress: agreement.tokenAddress,
+    basePayoutAmount: agreement.basePayoutAmount ?? null,
+    performancePoolAmount: agreement.performancePoolAmount ?? null,
+    promoRequirements: agreement.promoRequirements ?? null,
+    finalCutRequirements: agreement.finalCutRequirements ?? null,
+    publicationRequirements: agreement.publicationRequirements ?? null,
+    publicationDeadline: agreement.publicationDeadline?.toISOString() ?? null,
+    retentionDays: agreement.retentionDays ?? null,
     participants: agreement.participants
       .map((participant) => ({
         role: participant.role,
@@ -97,5 +112,8 @@ export function buildTermsSnapshot(agreement: AgreementTermsSource): JsonValue {
           : null,
       }))
       .sort((a, b) => a.id.localeCompare(b.id)),
+    performanceRules: (agreement.performanceRules ?? [])
+      .map((rule) => ({ kind: rule.kind, threshold: rule.threshold, amount: rule.amount, startsAtViews: rule.startsAtViews, amountPerThousandViews: rule.amountPerThousandViews, maximumAmount: rule.maximumAmount }))
+      .sort((a, b) => stableStringify(a).localeCompare(stableStringify(b))),
   };
 }

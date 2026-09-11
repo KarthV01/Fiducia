@@ -14,6 +14,7 @@ contract SponsorshipEscrow {
         uint256 totalCap;
         uint256 releasedAmount;
         bytes32 termsHash;
+        uint64 refundAfter;
         bool exists;
         bool active;
     }
@@ -23,7 +24,7 @@ contract SponsorshipEscrow {
     mapping(address => bool) public operators;
     mapping(bytes32 => Escrow) public escrows;
     mapping(bytes32 => mapping(bytes32 => bool)) public payoutReleased;
-    mapping(bytes32 => bytes32) public approvedDeliveryHash;
+    mapping(bytes32 => mapping(bytes32 => bytes32)) public approvedCheckpointHash;
 
     event OperatorUpdated(address indexed operator, bool allowed);
     event EscrowCreated(
@@ -35,7 +36,9 @@ contract SponsorshipEscrow {
         bytes32 termsHash
     );
     event PayoutReleased(bytes32 indexed agreementId, bytes32 indexed payoutId, address indexed creator, uint256 amount);
-    event DeliveryApproved(bytes32 indexed agreementId, bytes32 indexed submissionHash, bytes32 indexed payoutId);
+    event CheckpointApproved(bytes32 indexed agreementId, bytes32 indexed checkpointId, bytes32 artifactHash, bytes32 payoutId);
+    event PublicationRecorded(bytes32 indexed agreementId, bytes32 indexed artifactHash, bytes32 indexed payoutId);
+    event EscrowRefunded(bytes32 indexed agreementId, address indexed brand, uint256 amount);
     event EscrowCompleted(bytes32 indexed agreementId);
 
     error Unauthorized();
@@ -47,8 +50,9 @@ contract SponsorshipEscrow {
     error PayoutAlreadyReleased();
     error CapExceeded();
     error TokenTransferFailed();
-    error DeliveryAlreadyApproved();
+    error CheckpointAlreadyApproved();
     error ZeroHash();
+    error RefundNotAvailable();
 
     constructor() {
         owner = msg.sender;
@@ -78,7 +82,8 @@ contract SponsorshipEscrow {
         address creator,
         address token,
         uint256 totalCap,
-        bytes32 termsHash
+        bytes32 termsHash,
+        uint64 refundAfter
     ) external onlyOperator {
         if (brand == address(0) || creator == address(0) || token == address(0)) revert ZeroAddress();
         if (totalCap == 0) revert ZeroAmount();
@@ -94,6 +99,7 @@ contract SponsorshipEscrow {
             totalCap: totalCap,
             releasedAmount: 0,
             termsHash: termsHash,
+            refundAfter: refundAfter,
             exists: true,
             active: true
         });
@@ -105,18 +111,48 @@ contract SponsorshipEscrow {
         _releasePayout(agreementId, payoutId, amount);
     }
 
-    function approveDeliveryAndRelease(
+    function approveCheckpointAndRelease(
         bytes32 agreementId,
-        bytes32 submissionHash,
+        bytes32 checkpointId,
+        bytes32 artifactHash,
         bytes32 payoutId,
         uint256 amount
     ) external onlyOperator {
-        if (submissionHash == bytes32(0)) revert ZeroHash();
-        if (approvedDeliveryHash[agreementId] != bytes32(0)) revert DeliveryAlreadyApproved();
+        if (checkpointId == bytes32(0) || artifactHash == bytes32(0)) revert ZeroHash();
+        if (approvedCheckpointHash[agreementId][checkpointId] != bytes32(0)) revert CheckpointAlreadyApproved();
 
-        approvedDeliveryHash[agreementId] = submissionHash;
-        emit DeliveryApproved(agreementId, submissionHash, payoutId);
+        approvedCheckpointHash[agreementId][checkpointId] = artifactHash;
+        emit CheckpointApproved(agreementId, checkpointId, artifactHash, payoutId);
         _releasePayout(agreementId, payoutId, amount);
+    }
+
+    function recordPublicationAndRelease(
+        bytes32 agreementId,
+        bytes32 artifactHash,
+        bytes32 payoutId,
+        uint256 amount,
+        uint64 newRefundAfter
+    ) external onlyOperator {
+        Escrow storage escrow = escrows[agreementId];
+        bytes32 checkpointId = keccak256("publication");
+        if (artifactHash == bytes32(0)) revert ZeroHash();
+        if (approvedCheckpointHash[agreementId][checkpointId] != bytes32(0)) revert CheckpointAlreadyApproved();
+        if (newRefundAfter > escrow.refundAfter) escrow.refundAfter = newRefundAfter;
+        approvedCheckpointHash[agreementId][checkpointId] = artifactHash;
+        emit PublicationRecorded(agreementId, artifactHash, payoutId);
+        _releasePayout(agreementId, payoutId, amount);
+    }
+
+    function refundRemaining(bytes32 agreementId) external {
+        Escrow storage escrow = escrows[agreementId];
+        if (!escrow.exists) revert EscrowNotFound();
+        if (!escrow.active) revert EscrowNotActive();
+        if (msg.sender != escrow.brand && !operators[msg.sender]) revert Unauthorized();
+        if (block.timestamp < escrow.refundAfter) revert RefundNotAvailable();
+        uint256 amount = escrow.totalCap - escrow.releasedAmount;
+        escrow.active = false;
+        if (amount > 0 && !IERC20Like(escrow.token).transfer(escrow.brand, amount)) revert TokenTransferFailed();
+        emit EscrowRefunded(agreementId, escrow.brand, amount);
     }
 
     function _releasePayout(bytes32 agreementId, bytes32 payoutId, uint256 amount) internal {

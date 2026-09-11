@@ -4,8 +4,10 @@ import {
   defineChain,
   getAddress,
   http,
+  keccak256,
   maxUint256,
   parseEther,
+  toBytes,
   type Address,
   type Hex,
 } from "viem";
@@ -29,6 +31,7 @@ export type CreateEscrowInput = {
   token: string;
   totalCapAmount: string;
   termsHash: Hex;
+  refundAfter: number;
 };
 
 export type ReleasePayoutInput = {
@@ -37,9 +40,12 @@ export type ReleasePayoutInput = {
   amount: string;
 };
 
-export type ApproveDeliveryInput = ReleasePayoutInput & {
-  submissionHash: Hex;
+export type ApproveCheckpointInput = ReleasePayoutInput & {
+  checkpoint: string;
+  artifactHash: Hex;
 };
+
+export type RecordPublicationInput = Omit<ApproveCheckpointInput, "checkpoint"> & { refundAfter: number };
 
 export type PrepareLocalSponsorWalletInput = {
   walletAddress: string;
@@ -64,7 +70,9 @@ export interface ChainClient {
   prepareLocalSponsorWallet?(input: PrepareLocalSponsorWalletInput): Promise<void>;
   createEscrow(input: CreateEscrowInput): Promise<CreateEscrowResult>;
   releasePayout(input: ReleasePayoutInput): Promise<ChainWriteResult>;
-  approveDeliveryAndRelease(input: ApproveDeliveryInput): Promise<ChainWriteResult>;
+  approveCheckpointAndRelease(input: ApproveCheckpointInput): Promise<ChainWriteResult>;
+  recordPublicationAndRelease(input: RecordPublicationInput): Promise<ChainWriteResult>;
+  refundRemaining(agreementId: string): Promise<ChainWriteResult>;
 }
 
 export type ChainClientConfig = {
@@ -182,6 +190,7 @@ export class ViemChainClient implements ChainClient {
         getAddress(input.token),
         BigInt(input.totalCapAmount),
         input.termsHash,
+        input.refundAfter,
       ],
     });
 
@@ -206,19 +215,35 @@ export class ViemChainClient implements ChainClient {
     return { txHash };
   }
 
-  async approveDeliveryAndRelease(input: ApproveDeliveryInput): Promise<ChainWriteResult> {
+  async approveCheckpointAndRelease(input: ApproveCheckpointInput): Promise<ChainWriteResult> {
     const txHash = await this.walletClient.writeContract({
       address: this.escrowAddress,
       abi: sponsorshipEscrowAbi,
-      functionName: "approveDeliveryAndRelease",
+      functionName: "approveCheckpointAndRelease",
       args: [
         agreementKey(input.agreementId),
-        input.submissionHash,
+        keccak256(toBytes(input.checkpoint)),
+        input.artifactHash,
         payoutKey(input.agreementId, input.payoutId),
         BigInt(input.amount),
       ],
     });
 
+    await this.publicClient.waitForTransactionReceipt({ hash: txHash });
+    return { txHash };
+  }
+
+  async recordPublicationAndRelease(input: RecordPublicationInput): Promise<ChainWriteResult> {
+    const txHash = await this.walletClient.writeContract({
+      address: this.escrowAddress, abi: sponsorshipEscrowAbi, functionName: "recordPublicationAndRelease",
+      args: [agreementKey(input.agreementId), input.artifactHash, payoutKey(input.agreementId, input.payoutId), BigInt(input.amount), input.refundAfter],
+    });
+    await this.publicClient.waitForTransactionReceipt({ hash: txHash });
+    return { txHash };
+  }
+
+  async refundRemaining(agreementId: string): Promise<ChainWriteResult> {
+    const txHash = await this.walletClient.writeContract({ address: this.escrowAddress, abi: sponsorshipEscrowAbi, functionName: "refundRemaining", args: [agreementKey(agreementId)] });
     await this.publicClient.waitForTransactionReceipt({ hash: txHash });
     return { txHash };
   }

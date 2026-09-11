@@ -22,13 +22,13 @@ const conditionSchema = z.object({
 
 const payoutSchema = z
   .object({
-    kind: z.enum([PAYOUT_KIND.base, PAYOUT_KIND.bonus]),
+    kind: z.enum([PAYOUT_KIND.base, PAYOUT_KIND.promo, PAYOUT_KIND.finalCut, PAYOUT_KIND.publication, PAYOUT_KIND.retention, PAYOUT_KIND.bonus]),
     label: z.string().min(1),
     amount: positiveIntegerString,
     condition: conditionSchema.optional(),
   })
   .superRefine((payout, ctx) => {
-    if (payout.kind === PAYOUT_KIND.base && payout.condition) {
+    if (payout.kind !== PAYOUT_KIND.bonus && payout.condition) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["condition"],
@@ -58,19 +58,37 @@ export const createAgreementSchema = z
       creator: participantSchema,
     }),
     payouts: z.array(payoutSchema).min(1),
+    basePayoutAmount: positiveIntegerString.optional(),
+    performancePoolAmount: nonNegativeIntegerString.optional(),
+    promoRequirements: z.string().optional(),
+    finalCutRequirements: z.string().optional(),
+    publicationRequirements: z.string().optional(),
+    publicationDeadline: z.string().datetime().optional(),
+    retentionDays: z.number().int().positive().default(7),
+    performanceRules: z.array(z.object({
+      kind: z.enum(["fixed", "metered"]),
+      threshold: positiveIntegerString.optional(),
+      amount: positiveIntegerString.optional(),
+      startsAtViews: nonNegativeIntegerString.optional(),
+      amountPerThousandViews: positiveIntegerString.optional(),
+      maximumAmount: positiveIntegerString.optional(),
+    })).default([]),
   })
   .superRefine((agreement, ctx) => {
     const basePayouts = agreement.payouts.filter((payout) => payout.kind === PAYOUT_KIND.base);
-    if (basePayouts.length !== 1) {
+    const milestoneKinds = [PAYOUT_KIND.promo, PAYOUT_KIND.finalCut, PAYOUT_KIND.publication, PAYOUT_KIND.retention];
+    const hasMilestones = milestoneKinds.every((kind) => agreement.payouts.filter((payout) => payout.kind === kind).length === 1);
+    if (basePayouts.length !== 1 && !hasMilestones) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["payouts"],
-        message: "Exactly one base payout is required",
+        message: "One legacy base payout or all four milestone payouts are required",
       });
     }
 
     const totalPayouts = agreement.payouts.reduce((sum, payout) => sum + BigInt(payout.amount), 0n);
-    if (totalPayouts > BigInt(agreement.totalCapAmount)) {
+    const meteredCap = agreement.performanceRules.filter((rule) => rule.kind === "metered").reduce((sum, rule) => sum + BigInt(rule.maximumAmount ?? "0"), 0n);
+    if (totalPayouts + meteredCap > BigInt(agreement.totalCapAmount)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["totalCapAmount"],
@@ -89,28 +107,16 @@ export const metricObservationSchema = z.object({
 export type CreateAgreementInput = z.infer<typeof createAgreementSchema>;
 export type MetricObservationInput = z.infer<typeof metricObservationSchema>;
 
-const evidenceSchema = z.object({
-  url: z.string().url().max(2048),
-  label: z.string().trim().min(1).max(120).optional(),
-});
-
-export const deliverableSubmissionSchema = z.object({
-  proofUrl: z.string().url().max(2048),
-  notes: z.string().trim().max(5000).optional(),
-  evidence: z.array(evidenceSchema).max(10).default([]),
-  attested: z.literal(true),
-});
-
 export const deliverableReviewSchema = z
   .object({
     decision: z.enum([REVIEW_DECISION.changesRequested, REVIEW_DECISION.approved]),
     comment: z.string().trim().max(5000).optional(),
+    failedCriteria: z.array(z.string().trim().min(1).max(200)).max(20).default([]),
   })
   .superRefine((review, ctx) => {
-    if (review.decision === REVIEW_DECISION.changesRequested && !review.comment) {
+    if (review.decision === REVIEW_DECISION.changesRequested && (!review.comment || review.failedCriteria.length === 0)) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["comment"], message: "Revision feedback is required" });
     }
   });
 
-export type DeliverableSubmissionInput = z.infer<typeof deliverableSubmissionSchema>;
 export type DeliverableReviewInput = z.infer<typeof deliverableReviewSchema>;

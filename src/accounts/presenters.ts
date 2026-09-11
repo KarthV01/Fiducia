@@ -90,17 +90,19 @@ export function summarizeAgreement(
 }
 
 export function buildContractWorkflow(agreement: AgreementView) {
-  const latestSubmission = agreement.deliverableSubmissions[0] ?? null;
-  const basePaid = agreement.payouts.some(
-    (payout) => payout.kind === "base" && payout.status === PAYOUT_STATUS.released,
-  );
+  const promo = agreement.deliverableSubmissions.find((item) => item.checkpoint === "promo") ?? null;
+  const finalCut = agreement.deliverableSubmissions.find((item) => item.checkpoint === "final_cut") ?? null;
+  const publication = agreement.publications[0] ?? null;
+  const latestSubmission = finalCut ?? promo;
   const completedSteps: string[] = [];
   if (agreement.status !== AGREEMENT_STATUS.draft && agreement.status !== AGREEMENT_STATUS.acceptedOffchain) {
     completedSteps.push("Contract accepted", "Escrow funded");
   }
-  if (latestSubmission) completedSteps.push("Deliverable submitted");
-  if (latestSubmission?.status === DELIVERABLE_STATUS.approved) completedSteps.push("Sponsor approved");
-  if (basePaid) completedSteps.push("Base payout released");
+  if (promo) completedSteps.push("Promotional concept submitted");
+  if (promo?.status === DELIVERABLE_STATUS.approved) completedSteps.push("Promotional concept approved", "10% base payment released");
+  if (finalCut) completedSteps.push("Private final cut submitted");
+  if (finalCut?.status === DELIVERABLE_STATUS.approved) completedSteps.push("Private final cut approved", "20% base payment released");
+  if (publication?.status === "verified" || publication?.status === "retention" || publication?.status === "completed") completedSteps.push("Publication verified", "60% base payment released");
 
   let deliveryStatus = "awaiting_submission";
   let currentStep = "accept_contract";
@@ -112,20 +114,31 @@ export function buildContractWorkflow(agreement: AgreementView) {
   } else if (agreement.status === AGREEMENT_STATUS.completed) {
     deliveryStatus = latestSubmission?.status === DELIVERABLE_STATUS.approved ? "approved" : "awaiting_submission";
     currentStep = "completed";
-  } else if (!latestSubmission) {
-    currentStep = "submit_deliverable";
-    creatorAction = "submit";
-  } else if (latestSubmission.status === DELIVERABLE_STATUS.submitted) {
+  } else if (!promo || promo.status === DELIVERABLE_STATUS.changesRequested) {
+    currentStep = promo ? "revise_promo" : "submit_promo";
+    creatorAction = promo ? "revise_promo" : "submit_promo";
+  } else if (promo.status === DELIVERABLE_STATUS.submitted) {
     deliveryStatus = "in_review";
-    currentStep = "review_deliverable";
+    currentStep = "review_promo";
     sponsorAction = "review";
-  } else if (latestSubmission.status === DELIVERABLE_STATUS.changesRequested) {
+  } else if (!finalCut || finalCut.status === DELIVERABLE_STATUS.changesRequested) {
+    currentStep = finalCut ? "revise_final_cut" : "submit_final_cut";
+    creatorAction = finalCut ? "revise_final_cut" : "submit_final_cut";
+  } else if (finalCut.status === DELIVERABLE_STATUS.submitted) {
+    deliveryStatus = "in_review";
+    currentStep = "review_final_cut";
+    sponsorAction = "review";
+  } else if (!publication) {
+    deliveryStatus = "approved_for_publication";
+    currentStep = "publish";
+    creatorAction = "publish";
+  } else if (publication.status === "verification_required") {
     deliveryStatus = "changes_requested";
-    currentStep = "revise_deliverable";
-    creatorAction = "revise";
+    currentStep = "publish";
+    creatorAction = "publish";
   } else {
-    deliveryStatus = "approved";
-    currentStep = "track_performance";
+    deliveryStatus = publication.status;
+    currentStep = publication.status === "completed" ? "completed" : "retention";
   }
 
   return {
@@ -143,9 +156,12 @@ export function buildContractWorkflow(agreement: AgreementView) {
 function remainingSteps(currentStep: string) {
   const steps = [
     ["accept_contract", "Accept contract"],
-    ["submit_deliverable", "Submit deliverable"],
-    ["review_deliverable", "Sponsor review"],
-    ["revise_deliverable", "Submit revision"],
+    ["submit_promo", "Submit promotional concept"],
+    ["review_promo", "Sponsor reviews concept"],
+    ["submit_final_cut", "Submit private final cut"],
+    ["review_final_cut", "Sponsor reviews final cut"],
+    ["publish", "Publish verified video"],
+    ["retention", "Complete live window"],
     ["track_performance", "Track performance bonuses"],
   ];
   const index = steps.findIndex(([key]) => key === currentStep);

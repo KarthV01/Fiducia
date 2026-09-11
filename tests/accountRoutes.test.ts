@@ -142,7 +142,7 @@ describe("email-backed account API", () => {
     expect(chain.preparedSponsorWallets.some((wallet) => wallet.minimumTokenAmount === "2000000")).toBe(true);
   });
 
-  it("submits, revises, approves, anchors proof, and releases the base payout", async () => {
+  it("uploads, revises, approves, anchors private artifacts, and releases checkpoint payouts", async () => {
     const sponsorUser = await signIn(prisma, "sponsor@example.com");
     const creatorUser = await signIn(prisma, "creator@example.com");
     const sponsor = await createSponsor(app, sponsorUser.cookie);
@@ -160,46 +160,47 @@ describe("email-backed account API", () => {
     });
     const agreementId = invite.json().agreement.id;
 
-    const first = await app.inject({
-      method: "POST",
-      url: `/api/creators/${creator.id}/contracts/${agreementId}/deliverables`,
-      headers: { cookie: creatorUser.cookie },
-      payload: { proofUrl: "https://youtube.com/watch?v=first", notes: "First cut", evidence: [], attested: true },
-    });
+    const first = await uploadCheckpoint(app, creatorUser.cookie, creator.id, agreementId, "promo", "first concept");
     expect(first.statusCode).toBe(201);
-    expect(first.json().agreement.workflow.currentStep).toBe("review_deliverable");
 
     const changes = await app.inject({
       method: "POST",
-      url: `/api/sponsors/${sponsor.id}/contracts/${agreementId}/deliverables/${first.json().submission.id}/review`,
+      url: `/api/sponsors/${sponsor.id}/contracts/${agreementId}/submissions/${first.json().id}/review`,
       headers: { cookie: sponsorUser.cookie },
-      payload: { decision: "changes_requested", comment: "Add the disclosure." },
+      payload: { decision: "changes_requested", comment: "Add the disclosure.", failedCriteria: ["Required disclosure"] },
     });
     expect(changes.statusCode).toBe(200);
-    expect(changes.json().agreement.workflow.currentStep).toBe("revise_deliverable");
+    expect(changes.json().agreement.workflow.currentStep).toBe("revise_promo");
 
-    const revision = await app.inject({
-      method: "POST",
-      url: `/api/creators/${creator.id}/contracts/${agreementId}/deliverables`,
-      headers: { cookie: creatorUser.cookie },
-      payload: { proofUrl: "https://youtube.com/watch?v=final", notes: "Disclosure added", evidence: [], attested: true },
-    });
+    const revision = await uploadCheckpoint(app, creatorUser.cookie, creator.id, agreementId, "promo", "revised concept");
     expect(revision.statusCode).toBe(201);
-    expect(revision.json().submission.version).toBe(2);
+    expect(revision.json().version).toBe(2);
 
     const approval = await app.inject({
       method: "POST",
-      url: `/api/sponsors/${sponsor.id}/contracts/${agreementId}/deliverables/${revision.json().submission.id}/review`,
+      url: `/api/sponsors/${sponsor.id}/contracts/${agreementId}/submissions/${revision.json().id}/review`,
       headers: { cookie: sponsorUser.cookie },
-      payload: { decision: "approved", comment: "Approved." },
+      payload: { decision: "approved", comment: "Approved.", failedCriteria: [] },
     });
     expect(approval.statusCode).toBe(200);
     expect(approval.json().releasedPayoutIds).toHaveLength(1);
-    expect(approval.json().agreement.workflow.deliveryStatus).toBe("approved");
+    expect(approval.json().agreement.workflow.currentStep).toBe("submit_final_cut");
     expect(chain.approvedDeliveries).toHaveLength(1);
-    expect(chain.approvedDeliveries[0].submissionHash).toBe(revision.json().submission.contentHash);
+    expect(chain.approvedDeliveries[0].artifactHash).toBe(revision.json().contentHash);
   });
 });
+
+async function uploadCheckpoint(app: Awaited<ReturnType<typeof buildApp>>, cookie: string, creatorId: string, agreementId: string, checkpoint: "promo" | "final_cut", contents: string) {
+  const bytes = Buffer.from(contents);
+  const initialized = await app.inject({ method: "POST", url: `/api/creators/${creatorId}/contracts/${agreementId}/uploads`, headers: { cookie }, payload: { checkpoint, fileName: `${checkpoint}.txt`, mimeType: "text/plain", totalSize: String(bytes.length) } });
+  expect(initialized.statusCode).toBe(201);
+  const uploadId = initialized.json().id;
+  const chunk = await app.inject({ method: "PATCH", url: `/api/creators/${creatorId}/contracts/${agreementId}/uploads/${uploadId}`, headers: { cookie, "content-type": "application/octet-stream", "upload-offset": "0" }, payload: bytes });
+  expect(chunk.statusCode).toBe(204);
+  const completed = await app.inject({ method: "POST", url: `/api/creators/${creatorId}/contracts/${agreementId}/uploads/${uploadId}/complete`, headers: { cookie } });
+  expect(completed.statusCode).toBe(200);
+  return app.inject({ method: "POST", url: `/api/creators/${creatorId}/contracts/${agreementId}/checkpoints/${checkpoint}/submissions`, headers: { cookie }, payload: { uploadId, notes: "Private review", attested: true } });
+}
 
 async function signIn(prisma: FakePrisma, email: string) {
   const user = await prisma.user.create({

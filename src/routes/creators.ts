@@ -12,16 +12,13 @@ import {
 } from "../accounts/profiles.js";
 import { buildDashboardTotals, enrichAgreement, presentInvite, summarizeAgreement } from "../accounts/presenters.js";
 import { AGREEMENT_STATUS } from "../domain/status.js";
-import { deliverableSubmissionSchema, metricObservationSchema } from "../domain/validation.js";
 import { serviceUnavailable } from "../http/errors.js";
 import {
   agreementInclude,
   fundAgreementEscrow,
   getAgreement,
   listAgreementsForCreatorWallet,
-  recordMetricObservation,
 } from "../services/agreementService.js";
-import { submitDeliverable } from "../services/deliverableService.js";
 
 type RouteDeps = {
   prisma: PrismaClient;
@@ -110,36 +107,6 @@ export async function registerCreatorRoutes(app: FastifyInstance, deps: RouteDep
     },
   );
 
-  app.post<{ Params: { creatorId: string; id: string } }>(
-    "/api/creators/:creatorId/contracts/:id/deliverables",
-    async (request, reply) => {
-      const user = await requireUser(prisma, request);
-      const creator = await getCreatorProfileForUser(prisma, user.id, request.params.creatorId);
-      await ensureCreatorOwnsAgreement(prisma, creator.id, request.params.id);
-      const input = deliverableSubmissionSchema.parse(request.body);
-      const submission = await submitDeliverable(prisma, request.params.id, creator.id, input);
-      const agreement = await getAgreement(prisma, request.params.id);
-      const sponsors = await prisma.sponsorProfile.findMany();
-      return reply.code(201).send({ submission, agreement: enrichAgreement(agreement, sponsors, [creator]) });
-    },
-  );
-
-  app.post<{ Params: { creatorId: string; id: string } }>(
-    "/api/creators/:creatorId/contracts/:id/metrics",
-    async (request) => {
-      const user = await requireUser(prisma, request);
-      const creator = await getCreatorProfileForUser(prisma, user.id, request.params.creatorId);
-      await ensureCreatorOwnsAgreement(prisma, creator.id, request.params.id);
-      const chain = requireChain(deps.chain);
-      const input = metricObservationSchema.parse(request.body);
-      const result = await recordMetricObservation(prisma, chain, request.params.id, input);
-      const sponsors = await prisma.sponsorProfile.findMany();
-      return {
-        releasedPayoutIds: result.releasedPayoutIds,
-        agreement: enrichAgreement(result.agreement, sponsors, [creator]),
-      };
-    },
-  );
 }
 
 function requireChain(chain: ChainClient | undefined): ChainClient {

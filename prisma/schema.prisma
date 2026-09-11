@@ -84,7 +84,7 @@ model DeliverableSubmission {
   evidence         DeliverableEvidence[]
   reviews          DeliverableReview[]
 
-  @@unique([agreementId, version])
+  @@unique([agreementId, checkpoint, version])
   @@index([agreementId, status])
 }
 
@@ -97,9 +97,18 @@ model Publication {
   youtubeUrl       String?
   channelId        String?
   artifactHash     String
+  approvedArtifactId String
+  idempotencyKey   String   @unique
   fingerprintScore Float?
+  fingerprintVersion String?
+  visibility       String?
+  viewCount        String?
+  consecutiveConfirmations Int @default(0)
+  requirementsCompliant Boolean?
   publishedAt      DateTime?
   verifiedAt       DateTime?
+  retentionStartedAt DateTime?
+  measurementEndsAt DateTime?
   lastCheckedAt    DateTime?
   failureReason    String?
   createdAt        DateTime @default(now())
@@ -108,6 +117,20 @@ model Publication {
   agreement        Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
 
   @@index([agreementId, status])
+}
+
+model YouTubeConnection {
+  id                    String   @id @default(cuid())
+  creatorProfileId      String   @unique
+  channelId             String?
+  encryptedRefreshToken String?
+  oauthState            String   @unique
+  oauthStateExpiresAt   DateTime
+  connectedAt           DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  creatorProfile CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
 }
 
 model PerformanceRule {
@@ -161,6 +184,7 @@ model DeliverableReview {
   sponsorProfileId String
   decision         String
   comment          String?
+  failedCriteriaJson String?
   approvalTxHash   String?
   reviewedAt       DateTime              @default(now())
 
@@ -308,6 +332,7 @@ model CreatorProfile {
 
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   contractInvites ContractInvite[]
+  youtubeConnection YouTubeConnection?
 }
 
 model ProfileWallet {

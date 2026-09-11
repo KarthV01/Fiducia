@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import type {
   ChainClient,
-  ApproveDeliveryInput,
+  ApproveCheckpointInput,
   CreateEscrowInput,
   PrepareLocalSponsorWalletInput,
   ReleasePayoutInput,
@@ -13,7 +13,7 @@ export class FakeChainClient implements ChainClient {
   defaultTokenAddress = "0x4444444444444444444444444444444444444444" as const;
   createdEscrows: CreateEscrowInput[] = [];
   releasedPayouts: ReleasePayoutInput[] = [];
-  approvedDeliveries: ApproveDeliveryInput[] = [];
+  approvedDeliveries: ApproveCheckpointInput[] = [];
   preparedSponsorWallets: PrepareLocalSponsorWalletInput[] = [];
 
   async prepareLocalSponsorWallet(input: PrepareLocalSponsorWalletInput) {
@@ -37,12 +37,21 @@ export class FakeChainClient implements ChainClient {
     };
   }
 
-  async approveDeliveryAndRelease(input: ApproveDeliveryInput) {
+  async approveCheckpointAndRelease(input: ApproveCheckpointInput) {
     this.approvedDeliveries.push(input);
     this.releasedPayouts.push(input);
     return {
       txHash: `0x${"d".repeat(64)}` as const,
     };
+  }
+
+  async recordPublicationAndRelease(input: Omit<ApproveCheckpointInput, "checkpoint"> & { refundAfter: number }) {
+    this.releasedPayouts.push(input);
+    return { txHash: `0x${"e".repeat(64)}` as const };
+  }
+
+  async refundRemaining(_agreementId: string) {
+    return { txHash: `0x${"f".repeat(64)}` as const };
   }
 }
 
@@ -196,6 +205,8 @@ type DeliverableSubmissionRow = {
   version: number;
   status: string;
   proofUrl: string;
+  checkpoint: string;
+  uploadId: string | null;
   notes: string | null;
   contentHash: string;
   submittedAt: Date;
@@ -204,6 +215,7 @@ type DeliverableSubmissionRow = {
   createdAt: Date;
   updatedAt: Date;
 };
+type UploadSessionRow = { id: string; agreementId: string; creatorProfileId: string; checkpoint: string; status: string; fileName: string; mimeType: string; totalSize: string; receivedSize: string; storageKey: string; sha256: string | null; createdAt: Date; updatedAt: Date };
 
 type DeliverableEvidenceRow = { id: string; submissionId: string; url: string; label: string | null; position: number; createdAt: Date };
 type DeliverableReviewRow = { id: string; submissionId: string; sponsorProfileId: string; decision: string; comment: string | null; approvalTxHash: string | null; reviewedAt: Date };
@@ -226,6 +238,9 @@ export class FakePrisma {
   private deliverableSubmissions: DeliverableSubmissionRow[] = [];
   private deliverableEvidence: DeliverableEvidenceRow[] = [];
   private deliverableReviews: DeliverableReviewRow[] = [];
+  private uploadSessions: UploadSessionRow[] = [];
+  private performanceRules: Array<Record<string, unknown>> = [];
+  private chainOperations: Array<Record<string, unknown>> = [];
 
   agreement = {
     create: async ({ data }: { data: Partial<AgreementRow> }) => {
@@ -352,7 +367,7 @@ export class FakePrisma {
       const now = new Date();
       const row: DeliverableSubmissionRow = {
         id: data.id!, agreementId: data.agreementId!, creatorProfileId: data.creatorProfileId!, version: data.version!,
-        status: data.status ?? "submitted", proofUrl: data.proofUrl!, notes: data.notes ?? null,
+        status: data.status ?? "submitted", proofUrl: data.proofUrl!, checkpoint: data.checkpoint ?? "promo", uploadId: data.uploadId ?? null, notes: data.notes ?? null,
         contentHash: data.contentHash!, submittedAt: data.submittedAt ?? now, isLate: data.isLate ?? false,
         approvedTxHash: data.approvedTxHash ?? null, createdAt: now, updatedAt: now,
       };
@@ -370,6 +385,22 @@ export class FakePrisma {
     },
   };
 
+  uploadSession = {
+    create: async ({ data }: { data: Partial<UploadSessionRow> }) => {
+      const now = new Date();
+      const row: UploadSessionRow = { id: data.id!, agreementId: data.agreementId!, creatorProfileId: data.creatorProfileId!, checkpoint: data.checkpoint!, status: data.status ?? "uploading", fileName: data.fileName!, mimeType: data.mimeType!, totalSize: data.totalSize!, receivedSize: data.receivedSize ?? "0", storageKey: data.storageKey!, sha256: data.sha256 ?? null, createdAt: now, updatedAt: now };
+      this.uploadSessions.push(row);
+      return row;
+    },
+    findUnique: async ({ where }: { where: { id: string } }) => this.uploadSessions.find((item) => item.id === where.id) ?? null,
+    update: async ({ where, data }: { where: { id: string }; data: Partial<UploadSessionRow> }) => {
+      const row = this.uploadSessions.find((item) => item.id === where.id);
+      if (!row) throw new Error("Upload not found");
+      Object.assign(row, data, { updatedAt: new Date() });
+      return row;
+    },
+  };
+
   deliverableReview = {
     create: async ({ data }: { data: Partial<DeliverableReviewRow> }) => {
       const row: DeliverableReviewRow = {
@@ -380,6 +411,29 @@ export class FakePrisma {
       this.deliverableReviews.push(row);
       return row;
     },
+  };
+
+  performanceRule = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      const row = { id: this.id("performanceRule"), releasedAmount: "0", createdAt: new Date(), ...data };
+      this.performanceRules.push(row);
+      return row;
+    },
+  };
+
+  chainOperation = {
+    create: async ({ data }: { data: Record<string, unknown> }) => {
+      const row = { status: "pending", txHash: null, error: null, createdAt: new Date(), updatedAt: new Date(), ...data };
+      this.chainOperations.push(row);
+      return row;
+    },
+    update: async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
+      const row = this.chainOperations.find((item) => item.id === where.id);
+      if (!row) throw new Error("Chain operation not found");
+      Object.assign(row, data, { updatedAt: new Date() });
+      return row;
+    },
+    findUnique: async ({ where }: { where: { idempotencyKey?: string; id?: string } }) => this.chainOperations.find((item) => where.idempotencyKey ? item.idempotencyKey === where.idempotencyKey : item.id === where.id) ?? null,
   };
 
   blockchainRecord = {
@@ -747,6 +801,10 @@ export class FakePrisma {
         .filter((submission) => submission.agreementId === id)
         .sort((a, b) => b.version - a.version)
         .map((submission) => this.hydrateSubmission(submission)),
+      uploadSessions: this.uploadSessions.filter((upload) => upload.agreementId === id),
+      publications: [],
+      performanceRules: this.performanceRules.filter((rule) => rule.agreementId === id),
+      chainOperations: this.chainOperations.filter((operation) => operation.agreementId === id),
       blockchainRecord: this.blockchainRecords.find((record) => record.agreementId === id) ?? null,
     };
   }
@@ -760,6 +818,7 @@ export class FakePrisma {
       reviews: this.deliverableReviews
         .filter((item) => item.submissionId === submission.id)
         .sort((a, b) => a.reviewedAt.getTime() - b.reviewedAt.getTime()),
+      upload: submission.uploadId ? this.uploadSessions.find((upload) => upload.id === submission.uploadId) ?? null : null,
     };
   }
 }

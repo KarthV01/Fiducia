@@ -13,7 +13,12 @@ export const PARTICIPANT_ROLE = {
 
 export const PAYOUT_KIND = {
   base: "base",
+  promo: "promo",
+  finalCut: "final_cut",
+  publication: "publication",
+  retention: "retention",
   bonus: "bonus",
+  metered: "metered",
 } as const;
 
 export const PAYOUT_STATUS = {

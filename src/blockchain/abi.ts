@@ -27,6 +27,7 @@ export const sponsorshipEscrowAbi = [
       { name: "token", type: "address" },
       { name: "totalCap", type: "uint256" },
       { name: "termsHash", type: "bytes32" },
+      { name: "refundAfter", type: "uint64" },
     ],
     outputs: [],
   },
@@ -43,11 +44,12 @@ export const sponsorshipEscrowAbi = [
   },
   {
     type: "function",
-    name: "approveDeliveryAndRelease",
+    name: "approveCheckpointAndRelease",
     stateMutability: "nonpayable",
     inputs: [
       { name: "agreementId", type: "bytes32" },
-      { name: "submissionHash", type: "bytes32" },
+      { name: "checkpointId", type: "bytes32" },
+      { name: "artifactHash", type: "bytes32" },
       { name: "payoutId", type: "bytes32" },
       { name: "amount", type: "uint256" },
     ],
@@ -55,11 +57,16 @@ export const sponsorshipEscrowAbi = [
   },
   {
     type: "function",
-    name: "approvedDeliveryHash",
+    name: "approvedCheckpointHash",
     stateMutability: "view",
-    inputs: [{ name: "agreementId", type: "bytes32" }],
+    inputs: [{ name: "agreementId", type: "bytes32" }, { name: "checkpointId", type: "bytes32" }],
     outputs: [{ name: "", type: "bytes32" }],
   },
+  {
+    type: "function", name: "recordPublicationAndRelease", stateMutability: "nonpayable",
+    inputs: [{ name: "agreementId", type: "bytes32" }, { name: "artifactHash", type: "bytes32" }, { name: "payoutId", type: "bytes32" }, { name: "amount", type: "uint256" }, { name: "newRefundAfter", type: "uint64" }], outputs: [],
+  },
+  { type: "function", name: "refundRemaining", stateMutability: "nonpayable", inputs: [{ name: "agreementId", type: "bytes32" }], outputs: [] },
 ] as const;
 
 export const erc20Abi = [

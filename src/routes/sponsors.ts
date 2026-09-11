@@ -116,7 +116,7 @@ export async function registerSponsorRoutes(app: FastifyInstance, deps: RouteDep
   });
 
   app.post<{ Params: { sponsorId: string; id: string; submissionId: string } }>(
-    "/api/sponsors/:sponsorId/contracts/:id/deliverables/:submissionId/review",
+    "/api/sponsors/:sponsorId/contracts/:id/submissions/:submissionId/review",
     async (request) => {
       const user = await requireUser(prisma, request);
       const sponsor = await getSponsorProfileForUser(prisma, user.id, request.params.sponsorId);
@@ -141,6 +141,7 @@ export async function registerSponsorRoutes(app: FastifyInstance, deps: RouteDep
   app.post<{ Params: { sponsorId: string; id: string } }>(
     "/api/sponsors/:sponsorId/contracts/:id/metrics",
     async (request) => {
+      if (process.env.ENABLE_SIMULATION_METRICS !== "true") throw serviceUnavailable("Simulation metrics are disabled.");
       const user = await requireUser(prisma, request);
       const sponsor = await getSponsorProfileForUser(prisma, user.id, request.params.sponsorId);
       await ensureSponsorOwnsAgreement(prisma, sponsor.id, request.params.id);
