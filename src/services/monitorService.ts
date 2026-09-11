@@ -26,9 +26,10 @@ export async function monitorYouTube(prisma: PrismaClient, chain: ChainClient, n
       continue;
     }
     const confirmations = compliant ? publication.consecutiveConfirmations + 1 : 0;
-    await prisma.publication.update({ where: { id: publication.id }, data: { visibility: observation.public ? "public" : "unavailable", viewCount: observation.views, requirementsCompliant: compliant, consecutiveConfirmations: confirmations, lastCheckedAt: now } });
+    const retentionStartedAt = compliant ? publication.retentionStartedAt ?? now : null;
+    await prisma.publication.update({ where: { id: publication.id }, data: { visibility: observation.public ? "public" : "unavailable", viewCount: observation.views, requirementsCompliant: compliant, consecutiveConfirmations: confirmations, retentionStartedAt, lastCheckedAt: now } });
     if (compliant && confirmations >= 2) await settleVerifiedPerformance(prisma, chain, agreement.id, observation.views);
-    const retentionEnd = publication.publishedAt ? new Date(publication.publishedAt.getTime() + agreement.retentionDays * 86_400_000) : null;
+    const retentionEnd = retentionStartedAt ? new Date(retentionStartedAt.getTime() + agreement.retentionDays * 86_400_000) : null;
     const retentionPayout = agreement.payouts.find((p) => p.kind === PAYOUT_KIND.retention);
     if (compliant && retentionEnd && now >= retentionEnd && retentionPayout?.status === PAYOUT_STATUS.pending) await releasePayout(prisma, chain, agreement.id, retentionPayout.id, retentionPayout.amount, `retention:${publication.id}`, "retention");
     if (publication.measurementEndsAt && now >= publication.measurementEndsAt) {
