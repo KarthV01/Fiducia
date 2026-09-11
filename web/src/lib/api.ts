@@ -13,6 +13,7 @@ import type {
   MutationResult,
   ProfilesResponse,
   SponsorProfile,
+  UploadSession,
 } from "./types";
 
 export class ApiError extends Error {
@@ -94,13 +95,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify(input),
     }),
-  uploadCheckpointFile: async (creatorId: string, agreementId: string, checkpoint: "promo" | "final_cut", file: File, onProgress: (percent: number) => void) => {
-    const upload = await request<{ id: string; receivedSize: string }>(`/api/creators/${creatorId}/contracts/${agreementId}/uploads`, { method: "POST", body: JSON.stringify({ checkpoint, fileName: file.name, mimeType: file.type || "application/octet-stream", totalSize: String(file.size) }) });
+  uploadCheckpointFile: async (creatorId: string, agreementId: string, checkpoint: "promo" | "final_cut", file: File, onProgress: (percent: number) => void, existing?: UploadSession, signal?: AbortSignal) => {
+    const upload = existing ?? await request<UploadSession>(`/api/creators/${creatorId}/contracts/${agreementId}/uploads`, { method: "POST", body: JSON.stringify({ checkpoint, fileName: file.name, mimeType: file.type || "application/octet-stream", totalSize: String(file.size) }) });
     const chunkSize = 4 * 1024 * 1024;
     let offset = Number(upload.receivedSize);
     while (offset < file.size) {
       const chunk = file.slice(offset, Math.min(offset + chunkSize, file.size));
-      const response = await fetch(`/api/creators/${creatorId}/contracts/${agreementId}/uploads/${upload.id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/octet-stream", "Upload-Offset": String(offset) }, body: chunk });
+      const response = await fetch(`/api/creators/${creatorId}/contracts/${agreementId}/uploads/${upload.id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/octet-stream", "Upload-Offset": String(offset) }, body: chunk, signal });
       if (!response.ok) throw new ApiError(response.status, `Upload failed (${response.status})`);
       offset = Number(response.headers.get("Upload-Offset") ?? offset + chunk.size);
       onProgress(Math.round((offset / file.size) * 100));

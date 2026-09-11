@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { formatDate, formatNumber, partyName, truncateAddress, truncateHash } from "../lib/format";
 import { formatUsdc } from "../lib/money";
-import type { DeliverableReviewInput, EnrichedAgreement, MetricObservationInput } from "../lib/types";
+import type { DeliverableReviewInput, EnrichedAgreement, MetricObservationInput, UploadSession } from "../lib/types";
 import { Banner, Button, CopyText, Field, Input, Select, StatusPill, Textarea } from "./primitives";
 
 export function ContractPanel({
@@ -23,7 +23,7 @@ export function ContractPanel({
   message?: string | null;
   error?: string | null;
   onFund?: () => void;
-  onSubmitDeliverable?: (checkpoint: "promo" | "final_cut", file: File, notes: string, onProgress: (value: number) => void) => Promise<void>;
+  onSubmitDeliverable?: (checkpoint: "promo" | "final_cut", file: File, notes: string, onProgress: (value: number) => void, existing?: UploadSession, signal?: AbortSignal) => Promise<void>;
   onReviewDeliverable?: (submissionId: string, input: DeliverableReviewInput) => void;
   onRecordMetric?: (input: MetricObservationInput) => void;
   onPublish?: (input: { method: "manual"; youtubeUrl: string } | { method: "service"; title: string; description: string }) => Promise<void>;
@@ -190,7 +190,7 @@ function DeliverableWorkflow({
   contract: EnrichedAgreement;
   variant: "sponsor" | "creator";
   busy?: boolean;
-  onSubmit?: (checkpoint: "promo" | "final_cut", file: File, notes: string, onProgress: (value: number) => void) => Promise<void>;
+  onSubmit?: (checkpoint: "promo" | "final_cut", file: File, notes: string, onProgress: (value: number) => void, existing?: UploadSession, signal?: AbortSignal) => Promise<void>;
   onReview?: (submissionId: string, input: DeliverableReviewInput) => void;
   onPublish?: (input: { method: "manual"; youtubeUrl: string } | { method: "service"; title: string; description: string }) => Promise<void>;
   onConnectYouTube?: () => Promise<void>;
@@ -203,6 +203,7 @@ function DeliverableWorkflow({
   const [reviewComment, setReviewComment] = useState("");
   const [manualUrl, setManualUrl] = useState("");
   const [failedCriteria, setFailedCriteria] = useState<string[]>([]);
+  const [uploadAbort, setUploadAbort] = useState<AbortController | null>(null);
   const creatorAction = contract.workflow.creatorAction;
   const maySubmit = variant === "creator" && !!creatorAction && creatorAction !== "accept" && creatorAction !== "publish";
   const checkpoint: "promo" | "final_cut" = creatorAction?.includes("final_cut") ? "final_cut" : "promo";
@@ -252,13 +253,13 @@ function DeliverableWorkflow({
       ) : null}
 
       {maySubmit ? (
-        <form className="mt-5 space-y-4" onSubmit={async (event) => { event.preventDefault(); if (file) await onSubmit?.(checkpoint, file, notes, setProgress); }}>
+        <form className="mt-5 space-y-4" onSubmit={async (event) => { event.preventDefault(); if (file) { const controller = new AbortController(); setUploadAbort(controller); const resumable = contract.uploadSessions.find((upload) => upload.status === "uploading" && upload.checkpoint === checkpoint && upload.fileName === file.name && upload.totalSize === String(file.size)); try { await onSubmit?.(checkpoint, file, notes, setProgress, resumable, controller.signal); } finally { setUploadAbort(null); } } }}>
           <p className="rounded-[6px] bg-accent-soft p-3 text-sm text-ink">{checkpoint === "promo" ? contract.promoRequirements ?? "Upload the promotional concept or script for private review." : contract.finalCutRequirements ?? "Upload the complete pre-publication final cut."}</p>
           <Field label={checkpoint === "promo" ? "Promotional concept file" : "Private final-cut video"} required><Input type="file" accept={checkpoint === "final_cut" ? "video/mp4,video/quicktime,video/webm" : "video/*,image/*,.pdf,.txt,.doc,.docx"} onChange={(event) => setFile(event.target.files?.[0] ?? null)} required /></Field>
           <Field label="Submission notes"><Textarea rows={4} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Where the integration appears, review notes, or supporting context" /></Field>
           <label className="flex gap-2 text-sm text-ink"><input type="checkbox" checked={attested} onChange={(event) => setAttested(event.target.checked)} />I confirm this is the deliverable covered by this contract.</label>
           {progress > 0 ? <div className="h-2 overflow-hidden rounded bg-rule"><div className="h-full bg-accent" style={{ width: `${progress}%` }} /></div> : null}
-          <Button type="submit" disabled={busy || !file || !attested}>{creatorAction?.startsWith("revise") ? "Upload revision" : `Submit ${checkpoint === "promo" ? "concept" : "final cut"}`}</Button>
+          <div className="flex gap-2"><Button type="submit" disabled={busy || !file || !attested}>{contract.uploadSessions.some((upload) => upload.status === "uploading" && upload.checkpoint === checkpoint) ? "Resume upload" : creatorAction?.startsWith("revise") ? "Upload revision" : `Submit ${checkpoint === "promo" ? "concept" : "final cut"}`}</Button>{uploadAbort ? <Button type="button" variant="secondary" onClick={() => uploadAbort.abort()}>Pause</Button> : null}</div>
         </form>
       ) : null}
 

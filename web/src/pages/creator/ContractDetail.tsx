@@ -34,18 +34,19 @@ export function CreatorContractDetailPage() {
         busy={busy}
         error={actionError}
         message={message}
-        onSubmitDeliverable={async (checkpoint, file, notes, onProgress) => {
+        onSubmitDeliverable={async (checkpoint, file, notes, onProgress, existing, signal) => {
           setBusy(true);
           setActionError(null);
           setMessage(null);
           try {
-            const uploadId = await api.uploadCheckpointFile(creatorId, view.id, checkpoint, file, onProgress);
+            const uploadId = await api.uploadCheckpointFile(creatorId, view.id, checkpoint, file, onProgress, existing, signal);
             await api.submitCheckpoint(creatorId, view.id, checkpoint, { uploadId, notes: notes || undefined, attested: true });
             const refreshed = await api.creatorContract(creatorId, view.id);
             setContract(refreshed);
             setMessage(`${checkpoint === "promo" ? "Promotional concept" : "Final cut"} submitted for private review.`);
           } catch (err) {
-            setActionError(err instanceof Error ? err.message : "Could not submit deliverable");
+            if (err instanceof DOMException && err.name === "AbortError") setMessage("Upload paused. Choose the same file and resume when ready.");
+            else setActionError(err instanceof Error ? err.message : "Could not submit deliverable");
           } finally {
             setBusy(false);
             reload();

@@ -187,6 +187,7 @@ export type EnrichedAgreement = {
   creatorProfile: Party | null;
   financials: Financials;
   deliverableSubmissions: DeliverableSubmission[];
+  uploadSessions: UploadSession[];
   workflow: ContractWorkflow;
   basePayoutAmount: string | null;
   performancePoolAmount: string | null;
@@ -196,13 +197,6 @@ export type EnrichedAgreement = {
   publicationDeadline: string | null;
   retentionDays: number;
   publications: Array<{ id: string; method: string; status: string; youtubeUrl: string | null; fingerprintScore: number | null }>;
-};
-
-export type DeliverableSubmissionInput = {
-  proofUrl: string;
-  notes?: string;
-  evidence: Array<{ url: string; label?: string }>;
-  attested: true;
 };
 
 export type DeliverableReviewInput = {
