@@ -287,6 +287,7 @@ model User {
   sessions       AuthSession[]
   sponsors       SponsorProfile[]
   creators       CreatorProfile[]
+  socialIdentities SocialIdentity[]
 }
 
 model AuthSession {
@@ -314,6 +315,7 @@ model SponsorProfile {
 
   user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   contractInvites     ContractInvite[]
+  socialIdentity      SocialIdentity?
 }
 
 model CreatorProfile {
@@ -333,6 +335,68 @@ model CreatorProfile {
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   contractInvites ContractInvite[]
   youtubeConnection YouTubeConnection?
+  socialIdentity    SocialIdentity?
+}
+
+model SocialIdentity {
+  id                    String   @id @default(cuid())
+  userId                String
+  profileType           String
+  sponsorProfileId      String?  @unique
+  creatorProfileId      String?  @unique
+  handle                String
+  displayName           String
+  avatarUrl             String?
+  descriptor            String?
+  searchText            String
+  readReceiptsEnabled   Boolean  @default(true)
+  typingIndicatorsEnabled Boolean @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sponsorProfile        SponsorProfile? @relation(fields: [sponsorProfileId], references: [id], onDelete: Cascade)
+  creatorProfile        CreatorProfile? @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  requestedConnections  Connection[]    @relation("ConnectionRequester")
+  receivedConnections   Connection[]    @relation("ConnectionRecipient")
+  blocksCreated         ProfileBlock[]  @relation("Blocker")
+  blocksReceived        ProfileBlock[]  @relation("Blocked")
+
+  @@unique([profileType, handle])
+  @@index([userId])
+  @@index([profileType, displayName])
+  @@index([handle])
+}
+
+model Connection {
+  id          String   @id @default(cuid())
+  pairKey     String   @unique
+  requesterId String
+  recipientId String
+  status      String   @default("pending")
+  note        String?
+  respondedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  requester   SocialIdentity @relation("ConnectionRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  recipient   SocialIdentity @relation("ConnectionRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([requesterId, status, updatedAt])
+  @@index([recipientId, status, updatedAt])
+}
+
+model ProfileBlock {
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+
+  blocker   SocialIdentity @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   SocialIdentity @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
 }
 
 model ProfileWallet {

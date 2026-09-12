@@ -187,6 +187,37 @@ type ProfileWalletRow = {
   createdAt: Date;
 };
 
+type SocialIdentityRow = {
+  id: string;
+  userId: string;
+  profileType: string;
+  sponsorProfileId: string | null;
+  creatorProfileId: string | null;
+  handle: string;
+  displayName: string;
+  avatarUrl: string | null;
+  descriptor: string | null;
+  searchText: string;
+  readReceiptsEnabled: boolean;
+  typingIndicatorsEnabled: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type ConnectionRow = {
+  id: string;
+  pairKey: string;
+  requesterId: string;
+  recipientId: string;
+  status: string;
+  note: string | null;
+  respondedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type ProfileBlockRow = { id: string; blockerId: string; blockedId: string; createdAt: Date };
+
 type ContractInviteRow = {
   id: string;
   sponsorProfileId: string;
@@ -234,6 +265,9 @@ export class FakePrisma {
   private sponsorProfiles: SponsorProfileRow[] = [];
   private creatorProfiles: CreatorProfileRow[] = [];
   private profileWallets: ProfileWalletRow[] = [];
+  private socialIdentities: SocialIdentityRow[] = [];
+  private connections: ConnectionRow[] = [];
+  private profileBlocks: ProfileBlockRow[] = [];
   private contractInvites: ContractInviteRow[] = [];
   private deliverableSubmissions: DeliverableSubmissionRow[] = [];
   private deliverableEvidence: DeliverableEvidenceRow[] = [];
@@ -610,6 +644,71 @@ export class FakePrisma {
       if (!row) throw new Error("Wallet not found");
       Object.assign(row, data);
       return row;
+    },
+  };
+
+  socialIdentity = {
+    create: async ({ data }: { data: Partial<SocialIdentityRow> }) => {
+      const now = new Date();
+      const row: SocialIdentityRow = {
+        id: data.id ?? this.id("identity"), userId: data.userId!, profileType: data.profileType!,
+        sponsorProfileId: data.sponsorProfileId ?? null, creatorProfileId: data.creatorProfileId ?? null,
+        handle: data.handle!, displayName: data.displayName!, avatarUrl: data.avatarUrl ?? null,
+        descriptor: data.descriptor ?? null, searchText: data.searchText!,
+        readReceiptsEnabled: data.readReceiptsEnabled ?? true,
+        typingIndicatorsEnabled: data.typingIndicatorsEnabled ?? true, createdAt: now, updatedAt: now,
+      };
+      this.socialIdentities.push(row);
+      return row;
+    },
+    findUnique: async ({ where }: { where: { id?: string; sponsorProfileId?: string; creatorProfileId?: string } }) =>
+      this.socialIdentities.find((item) =>
+        (where.id && item.id === where.id) ||
+        (where.sponsorProfileId && item.sponsorProfileId === where.sponsorProfileId) ||
+        (where.creatorProfileId && item.creatorProfileId === where.creatorProfileId)) ?? null,
+    findMany: async ({ where, take }: { where?: { userId?: string }; take?: number } = {}) => {
+      const rows = this.socialIdentities.filter((item) => !where?.userId || item.userId === where.userId);
+      return take ? rows.slice(0, take) : rows;
+    },
+    update: async ({ where, data }: { where: { id: string }; data: Partial<SocialIdentityRow> }) => {
+      const row = this.socialIdentities.find((item) => item.id === where.id);
+      if (!row) throw new Error("Social identity not found");
+      Object.assign(row, data, { updatedAt: new Date() });
+      return row;
+    },
+  };
+
+  connection = {
+    create: async ({ data }: { data: Partial<ConnectionRow> }) => {
+      const now = new Date();
+      const row: ConnectionRow = { id: data.id ?? this.id("connection"), pairKey: data.pairKey!, requesterId: data.requesterId!, recipientId: data.recipientId!, status: data.status ?? "pending", note: data.note ?? null, respondedAt: data.respondedAt ?? null, createdAt: now, updatedAt: now };
+      this.connections.push(row);
+      return row;
+    },
+    findUnique: async ({ where }: { where: { id?: string; pairKey?: string } }) => this.connections.find((item) => (where.id && item.id === where.id) || (where.pairKey && item.pairKey === where.pairKey)) ?? null,
+    findMany: async () => [...this.connections],
+    count: async ({ where }: { where?: { requesterId?: string; status?: string } } = {}) => this.connections.filter((item) => (!where?.requesterId || item.requesterId === where.requesterId) && (!where?.status || item.status === where.status)).length,
+    update: async ({ where, data }: { where: { id: string }; data: Partial<ConnectionRow> }) => {
+      const row = this.connections.find((item) => item.id === where.id);
+      if (!row) throw new Error("Connection not found");
+      Object.assign(row, data, { updatedAt: new Date() });
+      return row;
+    },
+  };
+
+  profileBlock = {
+    create: async ({ data }: { data: Partial<ProfileBlockRow> }) => {
+      const row: ProfileBlockRow = { id: data.id ?? this.id("block"), blockerId: data.blockerId!, blockedId: data.blockedId!, createdAt: new Date() };
+      this.profileBlocks.push(row);
+      return row;
+    },
+    findFirst: async ({ where }: { where: { OR?: Array<{ blockerId: string; blockedId: string }> } }) => this.profileBlocks.find((item) => where.OR?.some((pair) => pair.blockerId === item.blockerId && pair.blockedId === item.blockedId)) ?? null,
+    findUnique: async ({ where }: { where: { blockerId_blockedId: { blockerId: string; blockedId: string } } }) => this.profileBlocks.find((item) => item.blockerId === where.blockerId_blockedId.blockerId && item.blockedId === where.blockerId_blockedId.blockedId) ?? null,
+    findMany: async () => [...this.profileBlocks],
+    deleteMany: async ({ where }: { where: { blockerId: string; blockedId: string } }) => {
+      const before = this.profileBlocks.length;
+      this.profileBlocks = this.profileBlocks.filter((item) => item.blockerId !== where.blockerId || item.blockedId !== where.blockedId);
+      return { count: before - this.profileBlocks.length };
     },
   };
 

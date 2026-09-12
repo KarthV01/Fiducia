@@ -11,6 +11,7 @@ import { registerSponsorRoutes } from "./routes/sponsors.js";
 import { HttpError } from "./http/errors.js";
 import { registerArtifactRoutes } from "./routes/artifacts.js";
 import { registerPublicationRoutes } from "./routes/publications.js";
+import { registerNetworkRoutes } from "./routes/network.js";
 
 export type AppDependencies = {
   prisma: PrismaClient;
@@ -64,6 +65,7 @@ export async function buildApp(deps: AppDependencies) {
   await app.register(registerCreatorRoutes, deps);
   await app.register(registerArtifactRoutes, deps);
   await app.register(registerPublicationRoutes, deps);
+  await app.register(registerNetworkRoutes, deps);
 
   return app;
 }

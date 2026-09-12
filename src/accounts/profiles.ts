@@ -86,6 +86,10 @@ export async function createSponsorProfile(
       },
     });
 
+    await tx.socialIdentity.create({
+      data: socialIdentityDataForSponsor(profile),
+    });
+
     return profile;
   });
 
@@ -121,6 +125,10 @@ export async function createCreatorProfile(prisma: PrismaClient, userId: string,
         walletAddress: wallet.address,
         privateKey: wallet.privateKey,
       },
+    });
+
+    await tx.socialIdentity.create({
+      data: socialIdentityDataForCreator(profile),
     });
 
     return profile;
@@ -331,4 +339,32 @@ function normalizeHandle(value: string): string {
 
 function emptyToNull(value: string | undefined): string | null {
   return value?.trim() ? value.trim() : null;
+}
+
+function socialIdentityDataForSponsor(sponsor: SponsorProfile) {
+  return {
+    id: `sponsor:${sponsor.id}`,
+    userId: sponsor.userId,
+    profileType: PROFILE_ROLE.sponsor,
+    sponsorProfileId: sponsor.id,
+    handle: sponsor.handle,
+    displayName: sponsor.name,
+    avatarUrl: sponsor.logoUrl,
+    descriptor: sponsor.industry,
+    searchText: [sponsor.name, sponsor.handle, sponsor.industry].join(" ").toLowerCase(),
+  };
+}
+
+function socialIdentityDataForCreator(creator: CreatorProfile) {
+  return {
+    id: `creator:${creator.id}`,
+    userId: creator.userId,
+    profileType: PROFILE_ROLE.creator,
+    creatorProfileId: creator.id,
+    handle: creator.handle,
+    displayName: creator.displayName,
+    avatarUrl: creator.avatarUrl,
+    descriptor: creator.category,
+    searchText: [creator.displayName, creator.handle, creator.category, creator.audience].filter(Boolean).join(" ").toLowerCase(),
+  };
 }
