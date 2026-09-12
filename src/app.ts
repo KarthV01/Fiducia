@@ -1,4 +1,5 @@
 import cors from "@fastify/cors";
+import websocket from "@fastify/websocket";
 import Fastify from "fastify";
 import { ZodError } from "zod";
 import type { PrismaClient } from "@prisma/client";
@@ -13,11 +14,14 @@ import { registerArtifactRoutes } from "./routes/artifacts.js";
 import { registerPublicationRoutes } from "./routes/publications.js";
 import { registerNetworkRoutes } from "./routes/network.js";
 import { registerMessagingRoutes } from "./routes/messaging.js";
+import { registerRealtimeRoutes } from "./routes/realtime.js";
+import { InMemoryRealtimePublisher, type RealtimePublisher } from "./services/realtimeService.js";
 
 export type AppDependencies = {
   prisma: PrismaClient;
   chain?: ChainClient;
   logger?: boolean;
+  realtime?: RealtimePublisher;
 };
 
 export async function buildApp(deps: AppDependencies) {
@@ -26,6 +30,7 @@ export async function buildApp(deps: AppDependencies) {
   });
 
   await app.register(cors, { origin: true });
+  await app.register(websocket);
   app.addContentTypeParser("application/octet-stream", { parseAs: "buffer", bodyLimit: 8 * 1024 * 1024 }, (_request, body, done) => done(null, body));
 
   app.setErrorHandler((error, _request, reply) => {
@@ -67,7 +72,9 @@ export async function buildApp(deps: AppDependencies) {
   await app.register(registerArtifactRoutes, deps);
   await app.register(registerPublicationRoutes, deps);
   await app.register(registerNetworkRoutes, deps);
-  await app.register(registerMessagingRoutes, deps);
+  const realtime = deps.realtime ?? new InMemoryRealtimePublisher();
+  await app.register(registerMessagingRoutes, { ...deps, realtime });
+  await app.register(registerRealtimeRoutes, { prisma: deps.prisma, realtime });
 
   return app;
 }

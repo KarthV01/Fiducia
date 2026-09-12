@@ -26,6 +26,7 @@ export function SponsorLayout() {
         { to: `/sponsor/${sponsorId}`, label: "Home" },
         { to: `/sponsor/${sponsorId}/contracts`, label: "Contracts" },
         { to: `/sponsor/${sponsorId}/network`, label: "My Network" },
+        { to: `/sponsor/${sponsorId}/messages`, label: "Messaging" },
         { to: `/sponsor/${sponsorId}/contracts/new`, label: "New contract" },
       ]}
     >

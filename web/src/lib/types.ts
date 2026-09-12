@@ -59,6 +59,52 @@ export type ConnectionRequest = {
 
 export type Paginated<T> = { items: T[]; nextCursor: string | null };
 
+export type MessageAttachment = {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  totalSize: number;
+  status: string;
+};
+
+export type ChatMessage = {
+  id: string;
+  conversationId: string;
+  clientMessageId: string;
+  type: string;
+  body: string | null;
+  sender: SocialProfile;
+  replyTo: { id: string; body: string | null; sender: SocialProfile } | null;
+  attachments: MessageAttachment[];
+  reactions: Array<{ id: string; identityId: string; emoji: string }>;
+  editedAt: string | null;
+  deletedAt: string | null;
+  createdAt: string;
+  sending?: boolean;
+  failed?: boolean;
+};
+
+export type ConversationParticipant = SocialProfile & { role: "owner" | "admin" | "member"; joinedAt: string };
+
+export type ConversationSummary = {
+  id: string;
+  type: "direct" | "group";
+  title: string;
+  participants: ConversationParticipant[];
+  latestMessage: ChatMessage | null;
+  lastMessageAt: string | null;
+  createdAt: string;
+  unreadCount?: number;
+  archived?: boolean;
+  starred?: boolean;
+  mutedUntil?: string | null;
+  draftText?: string | null;
+};
+
+export type MessagingCounts = { unread: number; requests: number };
+
+export type RealtimeEvent = { type: string; profileId: string; conversationId?: string; sequence: number; occurredAt: string; payload: unknown };
+
 export type DashboardTotals = {
   totalContracts: number;
   byStatus: Record<string, number>;

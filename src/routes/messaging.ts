@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireUser } from "../accounts/auth.js";
 import { badRequest } from "../http/errors.js";
 import { LocalDeliverableStorage } from "../services/deliverableStorage.js";
+import type { RealtimePublisher } from "../services/realtimeService.js";
 import { addGroupMembers, appendMessageAttachment, completeMessageAttachment, createGroupConversation, createProfileReport, deleteMessage, editMessage, ensureDirectConversation, getConversation, getOwnedSocialIdentityForMessaging, initializeMessageAttachment, leaveGroup, listConversations, listMessages, requireAttachmentAccess, sendMessage, toggleReaction, updateConversationState, updateGroupMember, updateGroupTitle } from "../services/messagingService.js";
 
 const storage = new LocalDeliverableStorage();
@@ -12,21 +13,31 @@ const messageSchema = z.object({ clientMessageId: z.string().min(1).max(100), bo
 const stateSchema = z.object({ read: z.boolean().optional(), archived: z.boolean().optional(), starred: z.boolean().optional(), mutedUntil: z.coerce.date().nullable().optional(), draftText: z.string().max(8000).nullable().optional() });
 const attachmentSchema = z.object({ fileName: z.string().min(1).max(255), mimeType: z.string().min(1), totalSize: z.number().int().positive() });
 
-export async function registerMessagingRoutes(app: FastifyInstance, deps: { prisma: PrismaClient }) {
+export async function registerMessagingRoutes(app: FastifyInstance, deps: { prisma: PrismaClient; realtime?: RealtimePublisher }) {
   const { prisma } = deps;
   app.get<{ Params: { identityId: string }; Querystring: { bucket?: string; q?: string } }>("/api/profiles/:identityId/conversations", async (request) => {
     const identity = await ownedIdentity(prisma, request, request.params.identityId);
     return { items: await listConversations(prisma, identity.id, request.query), nextCursor: null };
   });
+  app.get<{ Params: { identityId: string } }>("/api/profiles/:identityId/messaging-counts", async (request) => {
+    const identity = await ownedIdentity(prisma, request, request.params.identityId);
+    const conversations = await listConversations(prisma, identity.id, { bucket: "unread" });
+    const requests = await prisma.connection.count({ where: { recipientId: identity.id, status: "pending" } });
+    return { unread: conversations.reduce((sum, item) => sum + item.unreadCount, 0), requests };
+  });
   app.post<{ Params: { identityId: string } }>("/api/profiles/:identityId/conversations/direct", async (request, reply) => {
     const identity = await ownedIdentity(prisma, request, request.params.identityId);
     const input = z.object({ recipientId: z.string().min(1) }).parse(request.body);
-    return reply.code(201).send(await ensureDirectConversation(prisma, identity.id, input.recipientId));
+    const conversation = await ensureDirectConversation(prisma, identity.id, input.recipientId);
+    await publishConversation(prisma, deps.realtime, conversation.id, "conversation.updated", { conversationId: conversation.id });
+    return reply.code(201).send(conversation);
   });
   app.post<{ Params: { identityId: string } }>("/api/profiles/:identityId/conversations/groups", async (request, reply) => {
     const identity = await ownedIdentity(prisma, request, request.params.identityId);
     const input = groupSchema.parse(request.body);
-    return reply.code(201).send(await createGroupConversation(prisma, identity.id, input.title, input.participantIds));
+    const conversation = await createGroupConversation(prisma, identity.id, input.title, input.participantIds);
+    await publishConversation(prisma, deps.realtime, conversation.id, "conversation.created", { conversationId: conversation.id });
+    return reply.code(201).send(conversation);
   });
   app.get<{ Params: { identityId: string; conversationId: string } }>("/api/profiles/:identityId/conversations/:conversationId", async (request) => {
     const identity = await ownedIdentity(prisma, request, request.params.identityId);
@@ -42,24 +53,33 @@ export async function registerMessagingRoutes(app: FastifyInstance, deps: { pris
   });
   app.post<{ Params: { identityId: string; conversationId: string } }>("/api/profiles/:identityId/conversations/:conversationId/messages", async (request, reply) => {
     const identity = await ownedIdentity(prisma, request, request.params.identityId);
-    return reply.code(201).send(await sendMessage(prisma, identity.id, request.params.conversationId, messageSchema.parse(request.body)));
+    const message = await sendMessage(prisma, identity.id, request.params.conversationId, messageSchema.parse(request.body));
+    await publishConversation(prisma, deps.realtime, request.params.conversationId, "message.created", message);
+    return reply.code(201).send(message);
   });
   app.patch<{ Params: { identityId: string; conversationId: string; messageId: string } }>("/api/profiles/:identityId/conversations/:conversationId/messages/:messageId", async (request) => {
     const identity = await ownedIdentity(prisma, request, request.params.identityId);
-    return editMessage(prisma, identity.id, request.params.conversationId, request.params.messageId, z.object({ body: z.string().min(1).max(8000) }).parse(request.body).body);
+    const message = await editMessage(prisma, identity.id, request.params.conversationId, request.params.messageId, z.object({ body: z.string().min(1).max(8000) }).parse(request.body).body);
+    await publishConversation(prisma, deps.realtime, request.params.conversationId, "message.updated", message);
+    return message;
   });
   app.delete<{ Params: { identityId: string; conversationId: string; messageId: string } }>("/api/profiles/:identityId/conversations/:conversationId/messages/:messageId", async (request, reply) => {
     const identity = await ownedIdentity(prisma, request, request.params.identityId);
     await deleteMessage(prisma, identity.id, request.params.conversationId, request.params.messageId);
+    await publishConversation(prisma, deps.realtime, request.params.conversationId, "message.deleted", { messageId: request.params.messageId });
     return reply.code(204).send();
   });
   app.post<{ Params: { identityId: string; conversationId: string; messageId: string } }>("/api/profiles/:identityId/conversations/:conversationId/messages/:messageId/reactions", async (request) => {
     const identity = await ownedIdentity(prisma, request, request.params.identityId);
-    return toggleReaction(prisma, identity.id, request.params.conversationId, request.params.messageId, z.object({ emoji: z.string().min(1).max(8) }).parse(request.body).emoji);
+    const result = await toggleReaction(prisma, identity.id, request.params.conversationId, request.params.messageId, z.object({ emoji: z.string().min(1).max(8) }).parse(request.body).emoji);
+    await publishConversation(prisma, deps.realtime, request.params.conversationId, "reaction.updated", { messageId: request.params.messageId });
+    return result;
   });
   app.patch<{ Params: { identityId: string; conversationId: string } }>("/api/profiles/:identityId/conversations/:conversationId/state", async (request) => {
     const identity = await ownedIdentity(prisma, request, request.params.identityId);
-    return updateConversationState(prisma, identity.id, request.params.conversationId, stateSchema.parse(request.body));
+    const state = await updateConversationState(prisma, identity.id, request.params.conversationId, stateSchema.parse(request.body));
+    if (state.lastReadAt) await publishConversation(prisma, deps.realtime, request.params.conversationId, "conversation.read", { identityId: identity.id, readAt: state.lastReadAt });
+    return state;
   });
   app.post<{ Params: { identityId: string; conversationId: string } }>("/api/profiles/:identityId/conversations/:conversationId/members", async (request) => {
     const identity = await ownedIdentity(prisma, request, request.params.identityId);
@@ -107,4 +127,10 @@ export async function registerMessagingRoutes(app: FastifyInstance, deps: { pris
 async function ownedIdentity(prisma: PrismaClient, request: Parameters<typeof requireUser>[1], identityId: string) {
   const user = await requireUser(prisma, request);
   return getOwnedSocialIdentityForMessaging(prisma, user.id, identityId);
+}
+
+async function publishConversation(prisma: PrismaClient, realtime: RealtimePublisher | undefined, conversationId: string, type: string, payload: unknown) {
+  if (!realtime) return;
+  const participants = await prisma.conversationParticipant.findMany({ where: { conversationId, leftAt: null } });
+  realtime.publish(participants.map((item) => item.identityId), type, payload, conversationId);
 }

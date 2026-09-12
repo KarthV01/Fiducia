@@ -1,7 +1,10 @@
-import type { ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import type { Session } from "../lib/session";
 import { AccountSwitcher } from "./AccountSwitcher";
+import { api } from "../lib/api";
+import { connectProfileRealtime } from "../lib/realtime";
+import type { RealtimeEvent } from "../lib/types";
 
 export type NavItem = {
   to: string;
@@ -21,6 +24,28 @@ export function AppShell({
   currentSession: Session;
   children: ReactNode;
 }) {
+  const identityId = `${currentSession.role}:${currentSession.id}`;
+  const [messageBadge, setMessageBadge] = useState(0);
+  const refreshBadge = useCallback(() => {
+    void api.messagingCounts(identityId).then((counts) => setMessageBadge(counts.unread + counts.requests)).catch(() => undefined);
+  }, [identityId]);
+
+  useEffect(() => {
+    refreshBadge();
+    const onChanged = () => refreshBadge();
+    window.addEventListener("messaging:changed", onChanged);
+    const realtime = connectProfileRealtime(identityId, (event: RealtimeEvent) => {
+      if (event.type === "ready" || event.type === "typing") return;
+      refreshBadge();
+      window.dispatchEvent(new CustomEvent("messaging:realtime", { detail: event }));
+      if (event.type === "message.created" && document.hidden && Notification.permission === "granted") {
+        const payload = event.payload as { sender?: { displayName?: string }; body?: string };
+        new Notification(payload.sender?.displayName ?? "New message", { body: payload.body ?? "Sent an attachment" });
+      }
+    });
+    return () => { window.removeEventListener("messaging:changed", onChanged); realtime.close(); };
+  }, [identityId, refreshBadge]);
+
   return (
     <div className="flex min-h-screen bg-canvas">
       <aside className="flex w-56 shrink-0 flex-col border-r-2 border-ink/20 bg-surface">
@@ -39,7 +64,7 @@ export function AppShell({
                 }`
               }
             >
-              {item.label}
+              <span className="flex items-center justify-between gap-2"><span>{item.label}</span>{item.label === "Messaging" && messageBadge > 0 ? <span className="rounded-full bg-[#c0392b] px-1.5 py-0.5 text-[10px] leading-none text-white">{messageBadge > 99 ? "99+" : messageBadge}</span> : null}</span>
             </NavLink>
           ))}
         </nav>

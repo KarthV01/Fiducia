@@ -17,6 +17,10 @@ import type {
   ConnectionRequest,
   Paginated,
   SocialProfile,
+  ChatMessage,
+  ConversationSummary,
+  MessageAttachment,
+  MessagingCounts,
 } from "./types";
 
 export class ApiError extends Error {
@@ -103,6 +107,38 @@ export const api = {
     request(`/api/profiles/${encodeURIComponent(identityId)}/connections/${connectionId}`, { method: "PATCH", body: JSON.stringify({ action }) }),
   removeConnection: (identityId: string, connectionId: string) =>
     request<void>(`/api/profiles/${encodeURIComponent(identityId)}/connections/${connectionId}`, { method: "DELETE" }),
+  messagingCounts: (identityId: string) => request<MessagingCounts>(`/api/profiles/${encodeURIComponent(identityId)}/messaging-counts`),
+  conversations: (identityId: string, input: { bucket?: string; q?: string } = {}) => {
+    const params = new URLSearchParams();
+    if (input.bucket) params.set("bucket", input.bucket);
+    if (input.q) params.set("q", input.q);
+    return request<Paginated<ConversationSummary>>(`/api/profiles/${encodeURIComponent(identityId)}/conversations?${params}`);
+  },
+  conversation: (identityId: string, conversationId: string) => request<ConversationSummary>(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}`),
+  createDirectConversation: (identityId: string, recipientId: string) => request<{ id: string }>(`/api/profiles/${encodeURIComponent(identityId)}/conversations/direct`, { method: "POST", body: JSON.stringify({ recipientId }) }),
+  createGroupConversation: (identityId: string, title: string, participantIds: string[]) => request<{ id: string }>(`/api/profiles/${encodeURIComponent(identityId)}/conversations/groups`, { method: "POST", body: JSON.stringify({ title, participantIds }) }),
+  messages: (identityId: string, conversationId: string, cursor?: string) => request<Paginated<ChatMessage>>(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/messages${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`),
+  sendMessage: (identityId: string, conversationId: string, input: { clientMessageId: string; body?: string; replyToId?: string; attachmentIds?: string[] }) => request<ChatMessage>(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify(input) }),
+  editMessage: (identityId: string, conversationId: string, messageId: string, body: string) => request<ChatMessage>(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/messages/${messageId}`, { method: "PATCH", body: JSON.stringify({ body }) }),
+  deleteMessage: (identityId: string, conversationId: string, messageId: string) => request<void>(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/messages/${messageId}`, { method: "DELETE" }),
+  reactToMessage: (identityId: string, conversationId: string, messageId: string, emoji: string) => request<{ active: boolean }>(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/messages/${messageId}/reactions`, { method: "POST", body: JSON.stringify({ emoji }) }),
+  updateConversationState: (identityId: string, conversationId: string, input: { read?: boolean; archived?: boolean; starred?: boolean; mutedUntil?: string | null; draftText?: string | null }) => request(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/state`, { method: "PATCH", body: JSON.stringify(input) }),
+  addConversationMembers: (identityId: string, conversationId: string, participantIds: string[]) => request(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/members`, { method: "POST", body: JSON.stringify({ participantIds }) }),
+  leaveConversation: (identityId: string, conversationId: string) => request<void>(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/members/me`, { method: "DELETE" }),
+  uploadMessageAttachment: async (identityId: string, conversationId: string, file: File, onProgress?: (percent: number) => void) => {
+    const attachment = await request<MessageAttachment>(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/attachments`, { method: "POST", body: JSON.stringify({ fileName: file.name, mimeType: file.type || "application/octet-stream", totalSize: file.size }) });
+    const chunkSize = 4 * 1024 * 1024;
+    let offset = 0;
+    while (offset < file.size) {
+      const chunk = file.slice(offset, Math.min(offset + chunkSize, file.size));
+      const response = await fetch(`/api/profiles/${encodeURIComponent(identityId)}/attachments/${attachment.id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/octet-stream", "Upload-Offset": String(offset) }, body: chunk });
+      if (!response.ok) throw new ApiError(response.status, `Attachment upload failed (${response.status})`);
+      offset = Number(response.headers.get("Upload-Offset") ?? offset + chunk.size);
+      onProgress?.(Math.round(offset / file.size * 100));
+    }
+    await request(`/api/profiles/${encodeURIComponent(identityId)}/attachments/${attachment.id}/complete`, { method: "POST" });
+    return attachment.id;
+  },
   brandDashboard: (sponsorId: string) => request<BrandDashboard>(`/api/sponsors/${sponsorId}/dashboard`),
   brandContracts: (sponsorId: string) => request<EnrichedAgreement[]>(`/api/sponsors/${sponsorId}/contracts`),
   brandContract: (sponsorId: string, id: string) =>
