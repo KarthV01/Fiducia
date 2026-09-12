@@ -3,6 +3,7 @@ import type { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { requireUser } from "../accounts/auth.js";
 import { blockProfile, getOwnedSocialIdentity, listConnections, removeConnection, requestConnection, respondToConnection, searchSocialProfiles, unblockProfile } from "../services/networkService.js";
+import { ensureDirectConversation } from "../services/messagingService.js";
 
 const searchSchema = z.object({ q: z.string().max(100).optional(), relationship: z.enum(["all", "none", "connected", "incoming", "outgoing"]).optional(), profileType: z.enum(["all", "sponsor", "creator"]).optional(), cursor: z.string().optional(), limit: z.coerce.number().int().min(1).max(50).optional() });
 const requestSchema = z.object({ recipientId: z.string().min(1), note: z.string().max(300).optional() });
@@ -30,7 +31,10 @@ export async function registerNetworkRoutes(app: FastifyInstance, deps: { prisma
 
   app.patch<{ Params: { identityId: string; connectionId: string } }>("/api/profiles/:identityId/connections/:connectionId", async (request) => {
     const identity = await ownedIdentity(prisma, request, request.params.identityId);
-    return respondToConnection(prisma, identity.id, request.params.connectionId, responseSchema.parse(request.body).action);
+    const action = responseSchema.parse(request.body).action;
+    const connection = await respondToConnection(prisma, identity.id, request.params.connectionId, action);
+    if (action === "accept") await ensureDirectConversation(prisma, connection.requesterId, connection.recipientId, connection.note);
+    return connection;
   });
 
   app.delete<{ Params: { identityId: string; connectionId: string } }>("/api/profiles/:identityId/connections/:connectionId", async (request, reply) => {

@@ -12,6 +12,7 @@ import { HttpError } from "./http/errors.js";
 import { registerArtifactRoutes } from "./routes/artifacts.js";
 import { registerPublicationRoutes } from "./routes/publications.js";
 import { registerNetworkRoutes } from "./routes/network.js";
+import { registerMessagingRoutes } from "./routes/messaging.js";
 
 export type AppDependencies = {
   prisma: PrismaClient;
@@ -66,6 +67,7 @@ export async function buildApp(deps: AppDependencies) {
   await app.register(registerArtifactRoutes, deps);
   await app.register(registerPublicationRoutes, deps);
   await app.register(registerNetworkRoutes, deps);
+  await app.register(registerMessagingRoutes, deps);
 
   return app;
 }

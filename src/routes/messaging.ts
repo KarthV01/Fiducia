@@ -1,0 +1,110 @@
+import type { FastifyInstance } from "fastify";
+import type { PrismaClient } from "@prisma/client";
+import { z } from "zod";
+import { requireUser } from "../accounts/auth.js";
+import { badRequest } from "../http/errors.js";
+import { LocalDeliverableStorage } from "../services/deliverableStorage.js";
+import { addGroupMembers, appendMessageAttachment, completeMessageAttachment, createGroupConversation, createProfileReport, deleteMessage, editMessage, ensureDirectConversation, getConversation, getOwnedSocialIdentityForMessaging, initializeMessageAttachment, leaveGroup, listConversations, listMessages, requireAttachmentAccess, sendMessage, toggleReaction, updateConversationState, updateGroupMember, updateGroupTitle } from "../services/messagingService.js";
+
+const storage = new LocalDeliverableStorage();
+const groupSchema = z.object({ title: z.string().min(1).max(100), participantIds: z.array(z.string().min(1)).min(1).max(49) });
+const messageSchema = z.object({ clientMessageId: z.string().min(1).max(100), body: z.string().max(8000).optional(), replyToId: z.string().optional(), attachmentIds: z.array(z.string().uuid()).max(10).optional() });
+const stateSchema = z.object({ read: z.boolean().optional(), archived: z.boolean().optional(), starred: z.boolean().optional(), mutedUntil: z.coerce.date().nullable().optional(), draftText: z.string().max(8000).nullable().optional() });
+const attachmentSchema = z.object({ fileName: z.string().min(1).max(255), mimeType: z.string().min(1), totalSize: z.number().int().positive() });
+
+export async function registerMessagingRoutes(app: FastifyInstance, deps: { prisma: PrismaClient }) {
+  const { prisma } = deps;
+  app.get<{ Params: { identityId: string }; Querystring: { bucket?: string; q?: string } }>("/api/profiles/:identityId/conversations", async (request) => {
+    const identity = await ownedIdentity(prisma, request, request.params.identityId);
+    return { items: await listConversations(prisma, identity.id, request.query), nextCursor: null };
+  });
+  app.post<{ Params: { identityId: string } }>("/api/profiles/:identityId/conversations/direct", async (request, reply) => {
+    const identity = await ownedIdentity(prisma, request, request.params.identityId);
+    const input = z.object({ recipientId: z.string().min(1) }).parse(request.body);
+    return reply.code(201).send(await ensureDirectConversation(prisma, identity.id, input.recipientId));
+  });
+  app.post<{ Params: { identityId: string } }>("/api/profiles/:identityId/conversations/groups", async (request, reply) => {
+    const identity = await ownedIdentity(prisma, request, request.params.identityId);
+    const input = groupSchema.parse(request.body);
+    return reply.code(201).send(await createGroupConversation(prisma, identity.id, input.title, input.participantIds));
+  });
+  app.get<{ Params: { identityId: string; conversationId: string } }>("/api/profiles/:identityId/conversations/:conversationId", async (request) => {
+    const identity = await ownedIdentity(prisma, request, request.params.identityId);
+    return getConversation(prisma, identity.id, request.params.conversationId);
+  });
+  app.patch<{ Params: { identityId: string; conversationId: string } }>("/api/profiles/:identityId/conversations/:conversationId", async (request) => {
+    const identity = await ownedIdentity(prisma, request, request.params.identityId);
+    return updateGroupTitle(prisma, identity.id, request.params.conversationId, z.object({ title: z.string().min(1).max(100) }).parse(request.body).title);
+  });
+  app.get<{ Params: { identityId: string; conversationId: string }; Querystring: { cursor?: string; limit?: string } }>("/api/profiles/:identityId/conversations/:conversationId/messages", async (request) => {
+    const identity = await ownedIdentity(prisma, request, request.params.identityId);
+    return listMessages(prisma, identity.id, request.params.conversationId, request.query.cursor, Number(request.query.limit ?? 50));
+  });
+  app.post<{ Params: { identityId: string; conversationId: string } }>("/api/profiles/:identityId/conversations/:conversationId/messages", async (request, reply) => {
+    const identity = await ownedIdentity(prisma, request, request.params.identityId);
+    return reply.code(201).send(await sendMessage(prisma, identity.id, request.params.conversationId, messageSchema.parse(request.body)));
+  });
+  app.patch<{ Params: { identityId: string; conversationId: string; messageId: string } }>("/api/profiles/:identityId/conversations/:conversationId/messages/:messageId", async (request) => {
+    const identity = await ownedIdentity(prisma, request, request.params.identityId);
+    return editMessage(prisma, identity.id, request.params.conversationId, request.params.messageId, z.object({ body: z.string().min(1).max(8000) }).parse(request.body).body);
+  });
+  app.delete<{ Params: { identityId: string; conversationId: string; messageId: string } }>("/api/profiles/:identityId/conversations/:conversationId/messages/:messageId", async (request, reply) => {
+    const identity = await ownedIdentity(prisma, request, request.params.identityId);
+    await deleteMessage(prisma, identity.id, request.params.conversationId, request.params.messageId);
+    return reply.code(204).send();
+  });
+  app.post<{ Params: { identityId: string; conversationId: string; messageId: string } }>("/api/profiles/:identityId/conversations/:conversationId/messages/:messageId/reactions", async (request) => {
+    const identity = await ownedIdentity(prisma, request, request.params.identityId);
+    return toggleReaction(prisma, identity.id, request.params.conversationId, request.params.messageId, z.object({ emoji: z.string().min(1).max(8) }).parse(request.body).emoji);
+  });
+  app.patch<{ Params: { identityId: string; conversationId: string } }>("/api/profiles/:identityId/conversations/:conversationId/state", async (request) => {
+    const identity = await ownedIdentity(prisma, request, request.params.identityId);
+    return updateConversationState(prisma, identity.id, request.params.conversationId, stateSchema.parse(request.body));
+  });
+  app.post<{ Params: { identityId: string; conversationId: string } }>("/api/profiles/:identityId/conversations/:conversationId/members", async (request) => {
+    const identity = await ownedIdentity(prisma, request, request.params.identityId);
+    return addGroupMembers(prisma, identity.id, request.params.conversationId, z.object({ participantIds: z.array(z.string()).min(1).max(49) }).parse(request.body).participantIds);
+  });
+  app.patch<{ Params: { identityId: string; conversationId: string; targetId: string } }>("/api/profiles/:identityId/conversations/:conversationId/members/:targetId", async (request) => {
+    const identity = await ownedIdentity(prisma, request, request.params.identityId);
+    const action = z.object({ action: z.enum(["promote", "demote", "remove"]) }).parse(request.body).action;
+    return updateGroupMember(prisma, identity.id, request.params.conversationId, request.params.targetId, action);
+  });
+  app.delete<{ Params: { identityId: string; conversationId: string } }>("/api/profiles/:identityId/conversations/:conversationId/members/me", async (request, reply) => {
+    const identity = await ownedIdentity(prisma, request, request.params.identityId);
+    await leaveGroup(prisma, identity.id, request.params.conversationId);
+    return reply.code(204).send();
+  });
+  app.post<{ Params: { identityId: string; conversationId: string } }>("/api/profiles/:identityId/conversations/:conversationId/attachments", async (request, reply) => {
+    const identity = await ownedIdentity(prisma, request, request.params.identityId);
+    return reply.code(201).send(await initializeMessageAttachment(prisma, identity.id, request.params.conversationId, attachmentSchema.parse(request.body)));
+  });
+  app.patch<{ Params: { identityId: string; attachmentId: string } }>("/api/profiles/:identityId/attachments/:attachmentId", async (request, reply) => {
+    const identity = await ownedIdentity(prisma, request, request.params.identityId);
+    const offset = Number(request.headers["upload-offset"]);
+    if (!Number.isSafeInteger(offset) || offset < 0 || !Buffer.isBuffer(request.body)) throw badRequest("A valid Upload-Offset and binary chunk are required.");
+    const attachment = await appendMessageAttachment(prisma, storage, identity.id, request.params.attachmentId, offset, request.body);
+    return reply.header("Upload-Offset", attachment.receivedSize).code(204).send();
+  });
+  app.post<{ Params: { identityId: string; attachmentId: string } }>("/api/profiles/:identityId/attachments/:attachmentId/complete", async (request) => {
+    const identity = await ownedIdentity(prisma, request, request.params.identityId);
+    return completeMessageAttachment(prisma, storage, identity.id, request.params.attachmentId);
+  });
+  app.get<{ Params: { identityId: string; attachmentId: string } }>("/api/profiles/:identityId/attachments/:attachmentId/content", async (request, reply) => {
+    const identity = await ownedIdentity(prisma, request, request.params.identityId);
+    const attachment = await requireAttachmentAccess(prisma, identity.id, request.params.attachmentId);
+    const file = await storage.read(attachment.storageKey);
+    reply.header("Content-Type", attachment.mimeType).header("Content-Length", file.size).header("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(attachment.fileName)}`);
+    return reply.send(file.stream);
+  });
+  app.post<{ Params: { identityId: string; targetId: string } }>("/api/profiles/:identityId/reports/:targetId", async (request, reply) => {
+    const identity = await ownedIdentity(prisma, request, request.params.identityId);
+    const input = z.object({ messageId: z.string().optional(), reason: z.enum(["spam", "harassment", "fraud", "other"]), details: z.string().max(2000).optional() }).parse(request.body);
+    return reply.code(201).send(await createProfileReport(prisma, identity.id, request.params.targetId, input));
+  });
+}
+
+async function ownedIdentity(prisma: PrismaClient, request: Parameters<typeof requireUser>[1], identityId: string) {
+  const user = await requireUser(prisma, request);
+  return getOwnedSocialIdentityForMessaging(prisma, user.id, identityId);
+}

@@ -361,6 +361,13 @@ model SocialIdentity {
   receivedConnections   Connection[]    @relation("ConnectionRecipient")
   blocksCreated         ProfileBlock[]  @relation("Blocker")
   blocksReceived        ProfileBlock[]  @relation("Blocked")
+  conversationsCreated  Conversation[]  @relation("ConversationCreator")
+  conversationMemberships ConversationParticipant[]
+  messagesSent          Message[]
+  messageReactions      MessageReaction[]
+  messageAttachments    MessageAttachment[]
+  reportsFiled          ProfileReport[] @relation("ReportAuthor")
+  reportsReceived       ProfileReport[] @relation("ReportTarget")
 
   @@unique([profileType, handle])
   @@index([userId])
@@ -397,6 +404,125 @@ model ProfileBlock {
 
   @@unique([blockerId, blockedId])
   @@index([blockedId])
+}
+
+model Conversation {
+  id              String   @id @default(cuid())
+  type            String
+  title           String?
+  directPairKey   String?  @unique
+  createdById     String
+  lastMessageAt   DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  createdBy       SocialIdentity @relation("ConversationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  participants    ConversationParticipant[]
+  messages        Message[]
+  attachments     MessageAttachment[]
+
+  @@index([lastMessageAt])
+}
+
+model ConversationParticipant {
+  id              String   @id @default(cuid())
+  conversationId  String
+  identityId      String
+  role            String   @default("member")
+  joinedAt        DateTime @default(now())
+  leftAt          DateTime?
+  lastReadAt      DateTime?
+  archivedAt      DateTime?
+  starredAt       DateTime?
+  mutedUntil      DateTime?
+  draftText       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  conversation    Conversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  identity        SocialIdentity @relation(fields: [identityId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, identityId])
+  @@index([identityId, leftAt, archivedAt])
+}
+
+model Message {
+  id              String   @id @default(cuid())
+  conversationId  String
+  senderId        String
+  clientMessageId String
+  type            String   @default("user")
+  body            String?
+  replyToId       String?
+  editedAt        DateTime?
+  deletedAt       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender          SocialIdentity @relation(fields: [senderId], references: [id], onDelete: Restrict)
+  replyTo         Message? @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies         Message[] @relation("MessageReplies")
+  reactions       MessageReaction[]
+  attachments     MessageAttachment[]
+
+  @@unique([senderId, clientMessageId])
+  @@index([conversationId, createdAt, id])
+}
+
+model MessageReaction {
+  id          String   @id @default(cuid())
+  messageId   String
+  identityId  String
+  emoji       String
+  createdAt   DateTime @default(now())
+
+  message     Message        @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  identity    SocialIdentity @relation(fields: [identityId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, identityId, emoji])
+  @@index([messageId])
+}
+
+model MessageAttachment {
+  id              String   @id
+  conversationId  String
+  uploaderId      String
+  messageId       String?
+  status          String   @default("uploading")
+  fileName        String
+  mimeType        String
+  totalSize       Int
+  receivedSize    Int      @default(0)
+  storageKey      String
+  sha256          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  conversation    Conversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  uploader        SocialIdentity @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+  message         Message?       @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, status])
+  @@index([messageId])
+}
+
+model ProfileReport {
+  id          String   @id @default(cuid())
+  reporterId  String
+  targetId    String
+  messageId   String?
+  reason      String
+  details     String?
+  status      String   @default("open")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  reporter    SocialIdentity @relation("ReportAuthor", fields: [reporterId], references: [id], onDelete: Cascade)
+  target      SocialIdentity @relation("ReportTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@index([reporterId, createdAt])
+  @@index([targetId, status])
 }
 
 model ProfileWallet {

@@ -268,6 +268,12 @@ export class FakePrisma {
   private socialIdentities: SocialIdentityRow[] = [];
   private connections: ConnectionRow[] = [];
   private profileBlocks: ProfileBlockRow[] = [];
+  private conversations: Array<any> = [];
+  private conversationParticipants: Array<any> = [];
+  private messages: Array<any> = [];
+  private messageReactions: Array<any> = [];
+  private messageAttachments: Array<any> = [];
+  private profileReports: Array<any> = [];
   private contractInvites: ContractInviteRow[] = [];
   private deliverableSubmissions: DeliverableSubmissionRow[] = [];
   private deliverableEvidence: DeliverableEvidenceRow[] = [];
@@ -666,8 +672,8 @@ export class FakePrisma {
         (where.id && item.id === where.id) ||
         (where.sponsorProfileId && item.sponsorProfileId === where.sponsorProfileId) ||
         (where.creatorProfileId && item.creatorProfileId === where.creatorProfileId)) ?? null,
-    findMany: async ({ where, take }: { where?: { userId?: string }; take?: number } = {}) => {
-      const rows = this.socialIdentities.filter((item) => !where?.userId || item.userId === where.userId);
+    findMany: async ({ where, take }: { where?: { userId?: string; id?: { in: string[] } }; take?: number } = {}) => {
+      const rows = this.socialIdentities.filter((item) => (!where?.userId || item.userId === where.userId) && (!where?.id?.in || where.id.in.includes(item.id)));
       return take ? rows.slice(0, take) : rows;
     },
     update: async ({ where, data }: { where: { id: string }; data: Partial<SocialIdentityRow> }) => {
@@ -711,6 +717,89 @@ export class FakePrisma {
       return { count: before - this.profileBlocks.length };
     },
   };
+
+  conversation = {
+    create: async ({ data }: { data: any }) => {
+      const now = new Date();
+      const row = { id: data.id ?? this.id("conversation"), type: data.type, title: data.title ?? null, directPairKey: data.directPairKey ?? null, createdById: data.createdById, lastMessageAt: data.lastMessageAt ?? null, createdAt: now, updatedAt: now };
+      this.conversations.push(row);
+      for (const participant of data.participants?.create ?? []) await this.conversationParticipant.create({ data: { ...participant, conversationId: row.id } });
+      return row;
+    },
+    findUnique: async ({ where, include }: { where: any; include?: any }) => {
+      const row = this.conversations.find((item) => (where.id && item.id === where.id) || (where.directPairKey && item.directPairKey === where.directPairKey));
+      return row && include ? this.hydrateConversation(row) : row ?? null;
+    },
+    update: async ({ where, data }: { where: { id: string }; data: any }) => {
+      const row = this.conversations.find((item) => item.id === where.id);
+      if (!row) throw new Error("Conversation not found");
+      Object.assign(row, data, { updatedAt: new Date() });
+      return row;
+    },
+  };
+
+  conversationParticipant = {
+    create: async ({ data }: { data: any }) => {
+      const now = new Date();
+      const row = { id: data.id ?? this.id("member"), conversationId: data.conversationId, identityId: data.identityId, role: data.role ?? "member", joinedAt: data.joinedAt ?? now, leftAt: data.leftAt ?? null, lastReadAt: data.lastReadAt ?? null, archivedAt: data.archivedAt ?? null, starredAt: data.starredAt ?? null, mutedUntil: data.mutedUntil ?? null, draftText: data.draftText ?? null, createdAt: now, updatedAt: now };
+      this.conversationParticipants.push(row);
+      return row;
+    },
+    findUnique: async ({ where }: { where: any }) => this.conversationParticipants.find((item) => item.conversationId === where.conversationId_identityId?.conversationId && item.identityId === where.conversationId_identityId?.identityId) ?? null,
+    findFirst: async ({ where }: { where: any }) => this.conversationParticipants.find((item) => item.conversationId === where.conversationId && (typeof where.identityId === "string" ? item.identityId === where.identityId : item.identityId !== where.identityId?.not) && (!Object.hasOwn(where, "leftAt") || item.leftAt === where.leftAt)) ?? null,
+    findMany: async ({ where, include }: { where: any; include?: any }) => this.conversationParticipants.filter((item) => (!where.identityId || item.identityId === where.identityId) && (!Object.hasOwn(where, "leftAt") || item.leftAt === where.leftAt)).map((item) => include?.conversation ? { ...item, conversation: this.hydrateConversation(this.conversations.find((conversation) => conversation.id === item.conversationId)) } : item),
+    update: async ({ where, data }: { where: { id: string }; data: any }) => {
+      const row = this.conversationParticipants.find((item) => item.id === where.id);
+      if (!row) throw new Error("Participant not found");
+      Object.assign(row, data, { updatedAt: new Date() });
+      return row;
+    },
+    upsert: async ({ where, create, update }: { where: any; create: any; update: any }) => {
+      const existing = await this.conversationParticipant.findUnique({ where });
+      return existing ? this.conversationParticipant.update({ where: { id: existing.id }, data: update }) : this.conversationParticipant.create({ data: create });
+    },
+  };
+
+  message = {
+    create: async ({ data }: { data: any }) => {
+      const now = data.createdAt ?? new Date();
+      const row = { id: data.id ?? this.id("message"), conversationId: data.conversationId, senderId: data.senderId, clientMessageId: data.clientMessageId, type: data.type ?? "user", body: data.body ?? null, replyToId: data.replyToId ?? null, editedAt: data.editedAt ?? null, deletedAt: data.deletedAt ?? null, createdAt: now, updatedAt: now };
+      this.messages.push(row);
+      return row;
+    },
+    findUnique: async ({ where, include }: { where: any; include?: any }) => {
+      const row = this.messages.find((item) => (where.id && item.id === where.id) || (where.senderId_clientMessageId && item.senderId === where.senderId_clientMessageId.senderId && item.clientMessageId === where.senderId_clientMessageId.clientMessageId));
+      return row && include ? this.hydrateMessage(row) : row ?? null;
+    },
+    findMany: async ({ where, take, cursor, skip, select }: { where: any; take?: number; cursor?: any; skip?: number; select?: any }) => {
+      let rows = this.messages.filter((item) => (!where.conversationId || item.conversationId === where.conversationId) && (!where.body?.contains || item.body?.toLowerCase().includes(where.body.contains.toLowerCase()))).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      if (cursor?.id) rows = rows.slice(Math.max(0, rows.findIndex((item) => item.id === cursor.id) + (skip ?? 0)));
+      return rows.slice(0, take ?? rows.length).map((item) => select ? { conversationId: item.conversationId } : this.hydrateMessage(item));
+    },
+    count: async ({ where }: { where: any }) => this.messages.filter((item) => (!where.conversationId || item.conversationId === where.conversationId) && (!where.senderId || (typeof where.senderId === "string" ? item.senderId === where.senderId : item.senderId !== where.senderId.not)) && (!where.createdAt?.gt || item.createdAt > where.createdAt.gt) && (!where.createdAt?.gte || item.createdAt >= where.createdAt.gte)).length,
+    update: async ({ where, data, include }: { where: { id: string }; data: any; include?: any }) => {
+      const row = this.messages.find((item) => item.id === where.id);
+      if (!row) throw new Error("Message not found");
+      Object.assign(row, data, { updatedAt: new Date() });
+      return include ? this.hydrateMessage(row) : row;
+    },
+  };
+
+  messageReaction = {
+    findUnique: async ({ where }: { where: any }) => this.messageReactions.find((item) => item.messageId === where.messageId_identityId_emoji.messageId && item.identityId === where.messageId_identityId_emoji.identityId && item.emoji === where.messageId_identityId_emoji.emoji) ?? null,
+    create: async ({ data }: { data: any }) => { const row = { id: this.id("reaction"), ...data, createdAt: new Date() }; this.messageReactions.push(row); return row; },
+    delete: async ({ where }: { where: { id: string } }) => { const row = this.messageReactions.find((item) => item.id === where.id); this.messageReactions = this.messageReactions.filter((item) => item.id !== where.id); return row; },
+  };
+
+  messageAttachment = {
+    create: async ({ data }: { data: any }) => { const now = new Date(); const row = { messageId: null, status: "uploading", receivedSize: 0, sha256: null, createdAt: now, updatedAt: now, ...data }; this.messageAttachments.push(row); return row; },
+    findUnique: async ({ where }: { where: { id: string } }) => this.messageAttachments.find((item) => item.id === where.id) ?? null,
+    findMany: async ({ where }: { where: any }) => this.messageAttachments.filter((item) => (!where.id?.in || where.id.in.includes(item.id)) && (!where.conversationId || item.conversationId === where.conversationId) && (!where.uploaderId || item.uploaderId === where.uploaderId) && (where.messageId !== null || item.messageId === null) && (!where.status || item.status === where.status)),
+    update: async ({ where, data }: { where: { id: string }; data: any }) => { const row = this.messageAttachments.find((item) => item.id === where.id); if (!row) throw new Error("Attachment not found"); Object.assign(row, data, { updatedAt: new Date() }); return row; },
+    updateMany: async ({ where, data }: { where: any; data: any }) => { const rows = this.messageAttachments.filter((item) => where.id.in.includes(item.id)); rows.forEach((item) => Object.assign(item, data)); return { count: rows.length }; },
+  };
+
+  profileReport = { create: async ({ data }: { data: any }) => { const now = new Date(); const row = { id: this.id("report"), status: "open", createdAt: now, updatedAt: now, ...data }; this.profileReports.push(row); return row; } };
 
   contractInvite = {
     create: async ({
@@ -802,6 +891,32 @@ export class FakePrisma {
       sponsorProfiles: this.sponsorProfiles.length,
       creatorProfiles: this.creatorProfiles.length,
       contractInvites: this.contractInvites.length,
+    };
+  }
+
+  private hydrateMessage(message: any): any {
+    const sender = this.socialIdentities.find((identity) => identity.id === message.senderId)!;
+    const reply = message.replyToId ? this.messages.find((item) => item.id === message.replyToId) : null;
+    return {
+      ...message,
+      sender,
+      attachments: this.messageAttachments.filter((item) => item.messageId === message.id),
+      reactions: this.messageReactions.filter((item) => item.messageId === message.id),
+      replyTo: reply ? { ...reply, sender: this.socialIdentities.find((identity) => identity.id === reply.senderId)! } : null,
+    };
+  }
+
+  private hydrateConversation(conversation: any): any {
+    return {
+      ...conversation,
+      participants: this.conversationParticipants
+        .filter((item) => item.conversationId === conversation.id && !item.leftAt)
+        .map((item) => ({ ...item, identity: this.socialIdentities.find((identity) => identity.id === item.identityId)! })),
+      messages: this.messages
+        .filter((item) => item.conversationId === conversation.id)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, 1)
+        .map((item) => this.hydrateMessage(item)),
     };
   }
 

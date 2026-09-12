@@ -9,7 +9,7 @@
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
     "anvil": "anvil",
-    "db:init": "tsx scripts/initDb.ts",
+    "db:init": "prisma db push",
     "contracts:build": "forge build",
     "contracts:test": "forge test",
     "deploy:local": "tsx scripts/deployLocal.ts",
