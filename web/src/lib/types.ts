@@ -34,6 +34,31 @@ export type ProfilesResponse = {
   creators: CreatorProfile[];
 };
 
+export type RelationshipState = "none" | "connected" | "incoming" | "outgoing";
+
+export type SocialProfile = {
+  id: string;
+  profileType: "sponsor" | "creator";
+  profileId: string;
+  handle: string;
+  displayName: string;
+  avatarUrl: string | null;
+  descriptor: string | null;
+  relationship: RelationshipState;
+};
+
+export type ConnectionRequest = {
+  id: string;
+  status: string;
+  direction: "incoming" | "outgoing";
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+  profile: SocialProfile;
+};
+
+export type Paginated<T> = { items: T[]; nextCursor: string | null };
+
 export type DashboardTotals = {
   totalContracts: number;
   byStatus: Record<string, number>;

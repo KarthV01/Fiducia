@@ -25,7 +25,7 @@ export function SponsorLayout() {
       nav={[
         { to: `/sponsor/${sponsorId}`, label: "Home" },
         { to: `/sponsor/${sponsorId}/contracts`, label: "Contracts" },
-        { to: `/sponsor/${sponsorId}/creators`, label: "Creators" },
+        { to: `/sponsor/${sponsorId}/network`, label: "My Network" },
         { to: `/sponsor/${sponsorId}/contracts/new`, label: "New contract" },
       ]}
     >

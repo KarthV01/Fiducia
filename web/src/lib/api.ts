@@ -14,6 +14,9 @@ import type {
   ProfilesResponse,
   SponsorProfile,
   UploadSession,
+  ConnectionRequest,
+  Paginated,
+  SocialProfile,
 } from "./types";
 
 export class ApiError extends Error {
@@ -45,6 +48,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       // keep fallback
     }
     throw new ApiError(response.status, message);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
   }
 
   return (await response.json()) as T;
@@ -80,6 +87,22 @@ export const api = {
     }),
   searchCreators: (q: string) =>
     request<{ creators: CreatorProfile[] }>(`/api/creators/search?q=${encodeURIComponent(q)}`),
+  searchProfiles: (identityId: string, input: { q?: string; relationship?: string; profileType?: string; cursor?: string }) => {
+    const params = new URLSearchParams();
+    if (input.q) params.set("q", input.q);
+    if (input.relationship) params.set("relationship", input.relationship);
+    if (input.profileType) params.set("profileType", input.profileType);
+    if (input.cursor) params.set("cursor", input.cursor);
+    return request<Paginated<SocialProfile>>(`/api/profiles/${encodeURIComponent(identityId)}/search?${params}`);
+  },
+  connections: (identityId: string, bucket: "incoming" | "outgoing" | "connected") =>
+    request<Paginated<ConnectionRequest>>(`/api/profiles/${encodeURIComponent(identityId)}/connections?bucket=${bucket}`),
+  requestConnection: (identityId: string, recipientId: string, note?: string) =>
+    request(`/api/profiles/${encodeURIComponent(identityId)}/connections`, { method: "POST", body: JSON.stringify({ recipientId, note }) }),
+  respondToConnection: (identityId: string, connectionId: string, action: "accept" | "decline" | "withdraw") =>
+    request(`/api/profiles/${encodeURIComponent(identityId)}/connections/${connectionId}`, { method: "PATCH", body: JSON.stringify({ action }) }),
+  removeConnection: (identityId: string, connectionId: string) =>
+    request<void>(`/api/profiles/${encodeURIComponent(identityId)}/connections/${connectionId}`, { method: "DELETE" }),
   brandDashboard: (sponsorId: string) => request<BrandDashboard>(`/api/sponsors/${sponsorId}/dashboard`),
   brandContracts: (sponsorId: string) => request<EnrichedAgreement[]>(`/api/sponsors/${sponsorId}/contracts`),
   brandContract: (sponsorId: string, id: string) =>

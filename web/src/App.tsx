@@ -12,6 +12,7 @@ import { SponsorContractsPage } from "./pages/sponsor/Contracts";
 import { CreatorsPage } from "./pages/sponsor/Creators";
 import { SponsorHomePage } from "./pages/sponsor/Home";
 import { NewContractPage } from "./pages/sponsor/NewContract";
+import { NetworkPage } from "./pages/Network";
 
 function CreatorLegacyDealRedirect() {
   const { creatorId = "" } = useParams();
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="contracts/new" element={<NewContractPage />} />
         <Route path="contracts/:id" element={<SponsorContractDetailPage />} />
         <Route path="creators" element={<CreatorsPage />} />
+        <Route path="network" element={<NetworkPage />} />
       </Route>
       <Route path="/creator/:creatorId" element={<CreatorLayout />}>
         <Route index element={<CreatorHomePage />} />
@@ -47,6 +49,7 @@ export default function App() {
         <Route path="deals" element={<CreatorLegacyDealRedirect />} />
         <Route path="deals/:id" element={<CreatorLegacyDealDetailRedirect />} />
         <Route path="earnings" element={<CreatorEarningsPage />} />
+        <Route path="network" element={<NetworkPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

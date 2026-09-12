@@ -24,6 +24,7 @@ export function CreatorLayout() {
       nav={[
         { to: `/creator/${creatorId}`, label: "Home" },
         { to: `/creator/${creatorId}/contracts`, label: "Contracts" },
+        { to: `/creator/${creatorId}/network`, label: "My Network" },
         { to: `/creator/${creatorId}/earnings`, label: "Earnings" },
       ]}
     >
