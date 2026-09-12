@@ -12,7 +12,7 @@ import {
 } from "../accounts/profiles.js";
 import { buildDashboardTotals, enrichAgreement, presentInvite, summarizeAgreement } from "../accounts/presenters.js";
 import { deliverableReviewSchema, metricObservationSchema } from "../domain/validation.js";
-import { serviceUnavailable } from "../http/errors.js";
+import { conflict, serviceUnavailable } from "../http/errors.js";
 import {
   agreementInclude,
   createAgreementFromInput,
@@ -21,6 +21,7 @@ import {
   recordMetricObservation,
 } from "../services/agreementService.js";
 import { reviewDeliverable } from "../services/deliverableService.js";
+import { areConnected, socialIdentityId } from "../services/networkService.js";
 
 type RouteDeps = {
   prisma: PrismaClient;
@@ -92,6 +93,9 @@ export async function registerSponsorRoutes(app: FastifyInstance, deps: RouteDep
     const sponsor = await getSponsorProfileForUser(prisma, user.id, request.params.sponsorId);
     const input = contractInviteFormSchema.parse(request.body);
     const creator = await getCreatorProfile(prisma, input.creatorProfileId);
+    if (!await areConnected(prisma, socialIdentityId("sponsor", sponsor.id), socialIdentityId("creator", creator.id))) {
+      throw conflict("Connect with this creator before drafting a contract.");
+    }
     const agreementInput = buildAgreementInputFromContractInvite(
       input,
       sponsor,

@@ -45,7 +45,9 @@ export async function registerMessagingRoutes(app: FastifyInstance, deps: { pris
   });
   app.patch<{ Params: { identityId: string; conversationId: string } }>("/api/profiles/:identityId/conversations/:conversationId", async (request) => {
     const identity = await ownedIdentity(prisma, request, request.params.identityId);
-    return updateGroupTitle(prisma, identity.id, request.params.conversationId, z.object({ title: z.string().min(1).max(100) }).parse(request.body).title);
+    const conversation = await updateGroupTitle(prisma, identity.id, request.params.conversationId, z.object({ title: z.string().min(1).max(100) }).parse(request.body).title);
+    await publishConversation(prisma, deps.realtime, request.params.conversationId, "membership.updated", { conversationId: request.params.conversationId, title: conversation.title });
+    return conversation;
   });
   app.get<{ Params: { identityId: string; conversationId: string }; Querystring: { cursor?: string; limit?: string } }>("/api/profiles/:identityId/conversations/:conversationId/messages", async (request) => {
     const identity = await ownedIdentity(prisma, request, request.params.identityId);
@@ -83,16 +85,21 @@ export async function registerMessagingRoutes(app: FastifyInstance, deps: { pris
   });
   app.post<{ Params: { identityId: string; conversationId: string } }>("/api/profiles/:identityId/conversations/:conversationId/members", async (request) => {
     const identity = await ownedIdentity(prisma, request, request.params.identityId);
-    return addGroupMembers(prisma, identity.id, request.params.conversationId, z.object({ participantIds: z.array(z.string()).min(1).max(49) }).parse(request.body).participantIds);
+    const conversation = await addGroupMembers(prisma, identity.id, request.params.conversationId, z.object({ participantIds: z.array(z.string()).min(1).max(49) }).parse(request.body).participantIds);
+    await publishConversation(prisma, deps.realtime, request.params.conversationId, "membership.updated", { conversationId: request.params.conversationId });
+    return conversation;
   });
   app.patch<{ Params: { identityId: string; conversationId: string; targetId: string } }>("/api/profiles/:identityId/conversations/:conversationId/members/:targetId", async (request) => {
     const identity = await ownedIdentity(prisma, request, request.params.identityId);
     const action = z.object({ action: z.enum(["promote", "demote", "remove"]) }).parse(request.body).action;
-    return updateGroupMember(prisma, identity.id, request.params.conversationId, request.params.targetId, action);
+    const membership = await updateGroupMember(prisma, identity.id, request.params.conversationId, request.params.targetId, action);
+    await publishConversation(prisma, deps.realtime, request.params.conversationId, "membership.updated", { targetId: request.params.targetId, action });
+    return membership;
   });
   app.delete<{ Params: { identityId: string; conversationId: string } }>("/api/profiles/:identityId/conversations/:conversationId/members/me", async (request, reply) => {
     const identity = await ownedIdentity(prisma, request, request.params.identityId);
     await leaveGroup(prisma, identity.id, request.params.conversationId);
+    await publishConversation(prisma, deps.realtime, request.params.conversationId, "membership.updated", { targetId: identity.id, action: "leave" });
     return reply.code(204).send();
   });
   app.post<{ Params: { identityId: string; conversationId: string } }>("/api/profiles/:identityId/conversations/:conversationId/attachments", async (request, reply) => {

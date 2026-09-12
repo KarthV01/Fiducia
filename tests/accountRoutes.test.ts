@@ -93,6 +93,16 @@ describe("email-backed account API", () => {
     expect(search.statusCode).toBe(200);
     expect(search.json().creators[0].id).toBe(creator.id);
 
+    const gated = await app.inject({
+      method: "POST",
+      url: `/api/sponsors/${sponsor.id}/contract-invites`,
+      headers: { cookie: sponsorUser.cookie },
+      payload: contractPayload(creator.id),
+    });
+    expect(gated.statusCode).toBe(409);
+    expect(gated.json().message).toContain("Connect with this creator");
+
+    await connectProfiles(app, sponsorUser.cookie, creatorUser.cookie, sponsor.id, creator.id);
     const invite = await app.inject({
       method: "POST",
       url: `/api/sponsors/${sponsor.id}/contract-invites`,
@@ -111,6 +121,7 @@ describe("email-backed account API", () => {
 
     const sponsor = await createSponsor(app, sponsorUser.cookie);
     const creator = await createCreator(app, creatorUser.cookie);
+    const connection = await connectProfiles(app, sponsorUser.cookie, creatorUser.cookie, sponsor.id, creator.id);
 
     const invite = await app.inject({
       method: "POST",
@@ -126,6 +137,21 @@ describe("email-backed account API", () => {
       headers: { cookie: sponsorUser.cookie },
     });
     expect(wrongUser.statusCode).toBe(404);
+
+    const removed = await app.inject({
+      method: "DELETE",
+      url: `/api/profiles/sponsor:${sponsor.id}/connections/${connection.id}`,
+      headers: { cookie: sponsorUser.cookie },
+    });
+    expect(removed.statusCode).toBe(204);
+    const disconnected = await app.inject({
+      method: "POST",
+      url: `/api/creators/${creator.id}/invites/${inviteId}/accept`,
+      headers: { cookie: creatorUser.cookie },
+    });
+    expect(disconnected.statusCode).toBe(409);
+    expect(disconnected.json().message).toContain("Connect with the sponsor");
+    await connectProfiles(app, sponsorUser.cookie, creatorUser.cookie, sponsor.id, creator.id);
 
     const accepted = await app.inject({
       method: "POST",
@@ -147,6 +173,7 @@ describe("email-backed account API", () => {
     const creatorUser = await signIn(prisma, "creator@example.com");
     const sponsor = await createSponsor(app, sponsorUser.cookie);
     const creator = await createCreator(app, creatorUser.cookie);
+    await connectProfiles(app, sponsorUser.cookie, creatorUser.cookie, sponsor.id, creator.id);
     const invite = await app.inject({
       method: "POST",
       url: `/api/sponsors/${sponsor.id}/contract-invites`,
@@ -273,6 +300,30 @@ async function createCreator(app: Awaited<ReturnType<typeof buildApp>>, cookie: 
   });
   expect(response.statusCode).toBe(201);
   return response.json();
+}
+
+async function connectProfiles(
+  app: Awaited<ReturnType<typeof buildApp>>,
+  sponsorCookie: string,
+  creatorCookie: string,
+  sponsorId: string,
+  creatorId: string,
+) {
+  const requested = await app.inject({
+    method: "POST",
+    url: `/api/profiles/sponsor:${sponsorId}/connections`,
+    headers: { cookie: sponsorCookie },
+    payload: { recipientId: `creator:${creatorId}`, note: "Let's work together." },
+  });
+  expect(requested.statusCode).toBe(201);
+  const accepted = await app.inject({
+    method: "PATCH",
+    url: `/api/profiles/creator:${creatorId}/connections/${requested.json().id}`,
+    headers: { cookie: creatorCookie },
+    payload: { action: "accept" },
+  });
+  expect(accepted.statusCode).toBe(200);
+  return accepted.json();
 }
 
 function contractPayload(creatorProfileId: string) {

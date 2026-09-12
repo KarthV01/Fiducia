@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import { formatUsdc, usdcToUnits } from "../../lib/money";
-import type { CreatorProfile } from "../../lib/types";
+import type { SocialProfile } from "../../lib/types";
 import { useResource } from "../../lib/useResource";
 import { Banner, Button, Field, Input, PageHeader, RequiredMark, Select, Textarea } from "../../ui/primitives";
 
@@ -25,7 +25,7 @@ export function NewContractPage() {
   const { data, error, loading } = useResource(`contract-builder-${sponsorId}`, () => api.contractBuilder(sponsorId));
   const [creatorProfileId, setCreatorProfileId] = useState(searchParams.get("creatorProfileId") ?? "");
   const [creatorQuery, setCreatorQuery] = useState("");
-  const [creatorResults, setCreatorResults] = useState<CreatorProfile[]>([]);
+  const [creatorResults, setCreatorResults] = useState<SocialProfile[]>([]);
   const [creatorLoading, setCreatorLoading] = useState(false);
   const [title, setTitle] = useState("");
   const [deliverable, setDeliverable] = useState("");
@@ -45,7 +45,7 @@ export function NewContractPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const selectedCreator = creatorResults.find((creator) => creator.id === creatorProfileId) ?? null;
+  const selectedCreator = creatorResults.find((creator) => creator.profileId === creatorProfileId) ?? null;
   const preview = useMemo(() => {
     try {
       const base = BigInt(usdcToUnits(baseUsdc || "0"));
@@ -73,6 +73,12 @@ export function NewContractPage() {
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    void api.searchProfiles(`sponsor:${sponsorId}`, { relationship: "connected", profileType: "creator" })
+      .then((result) => setCreatorResults(result.items))
+      .catch(() => undefined);
+  }, [sponsorId]);
+
   if (loading) {
     return <p className="text-sm text-muted">Loading builder...</p>;
   }
@@ -85,8 +91,8 @@ export function NewContractPage() {
     setCreatorLoading(true);
     setFormError(null);
     try {
-      const result = await api.searchCreators(creatorQuery);
-      setCreatorResults(result.creators);
+      const result = await api.searchProfiles(`sponsor:${sponsorId}`, { q: creatorQuery, relationship: "connected", profileType: "creator" });
+      setCreatorResults(result.items);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Could not search creators");
     } finally {
@@ -191,7 +197,7 @@ export function NewContractPage() {
           {creatorResults.length > 0 ? (
             <div className="mt-3 grid gap-2">
               {creatorResults.map((creator) => {
-                const selected = creator.id === creatorProfileId;
+                const selected = creator.profileId === creatorProfileId;
                 return (
                   <button
                     key={creator.id}
@@ -199,11 +205,11 @@ export function NewContractPage() {
                     className={`rounded-[6px] border-2 px-3 py-2 text-left transition-colors ${
                       selected ? "border-accent bg-accent-soft" : "border-ink/15 hover:border-ink/35 hover:bg-accent-soft"
                     }`}
-                    onClick={() => setCreatorProfileId(creator.id)}
+                    onClick={() => setCreatorProfileId(creator.profileId)}
                   >
                     <div className="text-sm font-semibold text-ink">{creator.displayName}</div>
                     <div className="text-xs text-muted">
-                      {creator.handle} - {creator.category}
+                      {creator.handle} - {creator.descriptor}
                     </div>
                   </button>
                 );

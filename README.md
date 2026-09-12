@@ -87,9 +87,13 @@ The UI talks to authenticated APIs:
 - Profiles and account picker: `/api/profiles`
 - Sponsor workspaces: `/api/sponsors/:sponsorId/*`
 - Creator workspaces: `/api/creators/:creatorId/*`
-- Creator search: `/api/creators/search?q=...`
+- Professional network: `/api/profiles/:identityId/search` and `/connections`
+- Messaging: `/api/profiles/:identityId/conversations`, `/messages`, and private `/attachments`
+- Realtime: authenticated WebSocket `/api/realtime/:identityId`
 
-Sponsors create contract invitations by searching creator account names/handles. A contract remains a draft invitation until the selected creator accepts it; acceptance creates/funds escrow and locks the full cap from the sponsor's generated local wallet. The creator privately uploads immutable concept and final-cut versions. Sponsor approval anchors the artifact snapshot hash and atomically releases the 10% and 20% work tranches. Verified publication releases 60%; retention releases the final 10%.
+Sponsors and creators search one professional directory and establish mutual connections before opening direct conversations. Connection requests can include a text-only introduction; accepting one creates the direct conversation and preserves that note as its first message. Groups support up to 50 connected profiles. Chat attachments and deliverables remain private and use separate upload sessions.
+
+Only a connected sponsor profile can draft a contract for a creator, and the creator must still be connected when accepting it. Existing invitations are retained after a disconnect but acceptance returns `409` until the profiles reconnect. Acceptance creates/funds escrow and locks the full cap from the sponsor's generated local wallet. The creator privately uploads immutable concept and final-cut versions. Sponsor approval anchors the artifact snapshot hash and atomically releases the 10% and 20% work tranches. Verified publication releases 60%; retention releases the final 10%.
 
 Private files are streamed to `DELIVERABLE_STORAGE_DIR` in local development and served only to the contract's creator and sponsor with HTTP Range support. The storage service is behind a `DeliverableStorage` interface for a later S3/R2 adapter. Creator-entered metrics cannot release funds. The legacy sponsor simulation route only works when `ENABLE_SIMULATION_METRICS=true`.
 
@@ -121,10 +125,10 @@ List profiles owned by the signed-in email:
 curl -b cookies.txt http://localhost:3000/api/profiles
 ```
 
-Search creator accounts:
+Search professional profiles from an active identity:
 
 ```bash
-curl -b cookies.txt "http://localhost:3000/api/creators/search?q=maker"
+curl -b cookies.txt "http://localhost:3000/api/profiles/sponsor:{sponsorId}/search?q=maker&profileType=creator"
 ```
 
 Create a contract invite:

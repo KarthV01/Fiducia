@@ -78,10 +78,16 @@ export async function listConversations(prisma: PrismaClient, identityId: string
 }
 
 export async function getConversation(prisma: PrismaClient, identityId: string, conversationId: string) {
-  await requireParticipant(prisma, identityId, conversationId);
+  const membership = await requireParticipant(prisma, identityId, conversationId);
   const conversation = await prisma.conversation.findUnique({ where: { id: conversationId }, include: { participants: { where: { leftAt: null }, include: { identity: true } }, messages: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 1, include: messageInclude } } });
   if (!conversation) throw notFound("Conversation not found.");
-  return presentConversation(conversation, identityId);
+  return {
+    ...presentConversation(conversation, identityId),
+    archived: !!membership.archivedAt,
+    starred: !!membership.starredAt,
+    mutedUntil: membership.mutedUntil,
+    draftText: membership.draftText,
+  };
 }
 
 export async function listMessages(prisma: PrismaClient, identityId: string, conversationId: string, cursor?: string, limit = 50) {
@@ -258,5 +264,5 @@ function presentMessage(message: any) {
 
 function presentConversation(conversation: any, identityId: string) {
   const others = conversation.participants.filter((item: any) => item.identityId !== identityId).map((item: any) => presentSocialProfile(item.identity));
-  return { id: conversation.id, type: conversation.type, title: conversation.type === "direct" ? others[0]?.displayName ?? "Conversation" : conversation.title, participants: conversation.participants.map((item: any) => ({ ...presentSocialProfile(item.identity), role: item.role, joinedAt: item.joinedAt })), latestMessage: conversation.messages[0] ? presentMessage(conversation.messages[0]) : null, lastMessageAt: conversation.lastMessageAt, createdAt: conversation.createdAt };
+  return { id: conversation.id, type: conversation.type, title: conversation.type === "direct" ? others[0]?.displayName ?? "Conversation" : conversation.title, participants: conversation.participants.map((item: any) => ({ ...presentSocialProfile(item.identity), role: item.role, joinedAt: item.joinedAt, lastReadAt: item.lastReadAt })), latestMessage: conversation.messages[0] ? presentMessage(conversation.messages[0]) : null, lastMessageAt: conversation.lastMessageAt, createdAt: conversation.createdAt };
 }

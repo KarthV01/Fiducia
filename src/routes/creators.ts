@@ -12,13 +12,14 @@ import {
 } from "../accounts/profiles.js";
 import { buildDashboardTotals, enrichAgreement, presentInvite, summarizeAgreement } from "../accounts/presenters.js";
 import { AGREEMENT_STATUS } from "../domain/status.js";
-import { serviceUnavailable } from "../http/errors.js";
+import { conflict, serviceUnavailable } from "../http/errors.js";
 import {
   agreementInclude,
   fundAgreementEscrow,
   getAgreement,
   listAgreementsForCreatorWallet,
 } from "../services/agreementService.js";
+import { areConnected, socialIdentityId } from "../services/networkService.js";
 
 type RouteDeps = {
   prisma: PrismaClient;
@@ -83,6 +84,9 @@ export async function registerCreatorRoutes(app: FastifyInstance, deps: RouteDep
       const user = await requireUser(prisma, request);
       const creator = await getCreatorProfileForUser(prisma, user.id, request.params.creatorId);
       const invite = await requirePendingInviteOwnership(prisma, creator.id, request.params.inviteId);
+      if (!await areConnected(prisma, socialIdentityId("sponsor", invite.sponsorProfileId), socialIdentityId("creator", creator.id))) {
+        throw conflict("Connect with the sponsor before accepting this contract.");
+      }
       const chain = requireChain(deps.chain);
 
       await provisionLocalSponsorWallet(prisma, chain, invite.sponsorProfile, invite.agreement.totalCapAmount);

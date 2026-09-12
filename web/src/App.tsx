@@ -9,7 +9,6 @@ import { CreatorEarningsPage } from "./pages/creator/Earnings";
 import { CreatorHomePage } from "./pages/creator/Home";
 import { SponsorContractDetailPage } from "./pages/sponsor/ContractDetail";
 import { SponsorContractsPage } from "./pages/sponsor/Contracts";
-import { CreatorsPage } from "./pages/sponsor/Creators";
 import { SponsorHomePage } from "./pages/sponsor/Home";
 import { NewContractPage } from "./pages/sponsor/NewContract";
 import { NetworkPage } from "./pages/Network";
@@ -30,6 +29,11 @@ function SponsorLegacyRedirect() {
   return <Navigate to={session?.role === "sponsor" ? `/sponsor/${session.id}` : "/"} replace />;
 }
 
+function SponsorCreatorsRedirect() {
+  const { sponsorId = "" } = useParams();
+  return <Navigate to={`/sponsor/${sponsorId}/network`} replace />;
+}
+
 export default function App() {
   return (
     <Routes>
@@ -40,7 +44,7 @@ export default function App() {
         <Route path="contracts" element={<SponsorContractsPage />} />
         <Route path="contracts/new" element={<NewContractPage />} />
         <Route path="contracts/:id" element={<SponsorContractDetailPage />} />
-        <Route path="creators" element={<CreatorsPage />} />
+        <Route path="creators" element={<SponsorCreatorsRedirect />} />
         <Route path="network" element={<NetworkPage />} />
         <Route path="messages" element={<MessagingPage />} />
       </Route>

@@ -107,6 +107,12 @@ export const api = {
     request(`/api/profiles/${encodeURIComponent(identityId)}/connections/${connectionId}`, { method: "PATCH", body: JSON.stringify({ action }) }),
   removeConnection: (identityId: string, connectionId: string) =>
     request<void>(`/api/profiles/${encodeURIComponent(identityId)}/connections/${connectionId}`, { method: "DELETE" }),
+  blockProfile: (identityId: string, targetId: string) =>
+    request(`/api/profiles/${encodeURIComponent(identityId)}/blocks/${encodeURIComponent(targetId)}`, { method: "POST" }),
+  unblockProfile: (identityId: string, targetId: string) =>
+    request<void>(`/api/profiles/${encodeURIComponent(identityId)}/blocks/${encodeURIComponent(targetId)}`, { method: "DELETE" }),
+  reportProfile: (identityId: string, targetId: string, input: { messageId?: string; reason: "spam" | "harassment" | "fraud" | "other"; details?: string }) =>
+    request(`/api/profiles/${encodeURIComponent(identityId)}/reports/${encodeURIComponent(targetId)}`, { method: "POST", body: JSON.stringify(input) }),
   messagingCounts: (identityId: string) => request<MessagingCounts>(`/api/profiles/${encodeURIComponent(identityId)}/messaging-counts`),
   conversations: (identityId: string, input: { bucket?: string; q?: string } = {}) => {
     const params = new URLSearchParams();
@@ -124,6 +130,8 @@ export const api = {
   reactToMessage: (identityId: string, conversationId: string, messageId: string, emoji: string) => request<{ active: boolean }>(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/messages/${messageId}/reactions`, { method: "POST", body: JSON.stringify({ emoji }) }),
   updateConversationState: (identityId: string, conversationId: string, input: { read?: boolean; archived?: boolean; starred?: boolean; mutedUntil?: string | null; draftText?: string | null }) => request(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/state`, { method: "PATCH", body: JSON.stringify(input) }),
   addConversationMembers: (identityId: string, conversationId: string, participantIds: string[]) => request(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/members`, { method: "POST", body: JSON.stringify({ participantIds }) }),
+  updateConversationTitle: (identityId: string, conversationId: string, title: string) => request(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}`, { method: "PATCH", body: JSON.stringify({ title }) }),
+  updateGroupMember: (identityId: string, conversationId: string, targetId: string, action: "promote" | "demote" | "remove") => request(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/members/${encodeURIComponent(targetId)}`, { method: "PATCH", body: JSON.stringify({ action }) }),
   leaveConversation: (identityId: string, conversationId: string) => request<void>(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/members/me`, { method: "DELETE" }),
   uploadMessageAttachment: async (identityId: string, conversationId: string, file: File, onProgress?: (percent: number) => void) => {
     const attachment = await request<MessageAttachment>(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/attachments`, { method: "POST", body: JSON.stringify({ fileName: file.name, mimeType: file.type || "application/octet-stream", totalSize: file.size }) });

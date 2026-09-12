@@ -84,7 +84,7 @@ export type ChatMessage = {
   failed?: boolean;
 };
 
-export type ConversationParticipant = SocialProfile & { role: "owner" | "admin" | "member"; joinedAt: string };
+export type ConversationParticipant = SocialProfile & { role: "owner" | "admin" | "member"; joinedAt: string; lastReadAt: string | null };
 
 export type ConversationSummary = {
   id: string;

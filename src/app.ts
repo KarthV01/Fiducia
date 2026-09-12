@@ -64,6 +64,8 @@ export async function buildApp(deps: AppDependencies) {
     ok: true,
   }));
 
+  const realtime = deps.realtime ?? new InMemoryRealtimePublisher();
+
   await app.register(registerAgreementRoutes, deps);
   await app.register(registerAuthRoutes, deps);
   await app.register(registerProfileRoutes, deps);
@@ -71,8 +73,7 @@ export async function buildApp(deps: AppDependencies) {
   await app.register(registerCreatorRoutes, deps);
   await app.register(registerArtifactRoutes, deps);
   await app.register(registerPublicationRoutes, deps);
-  await app.register(registerNetworkRoutes, deps);
-  const realtime = deps.realtime ?? new InMemoryRealtimePublisher();
+  await app.register(registerNetworkRoutes, { ...deps, realtime });
   await app.register(registerMessagingRoutes, { ...deps, realtime });
   await app.register(registerRealtimeRoutes, { prisma: deps.prisma, realtime });
 

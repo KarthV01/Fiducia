@@ -6,6 +6,7 @@ import type { ChatMessage, ConnectionRequest, ConversationSummary, SocialProfile
 import { Banner, Button, EmptyState, Input, Select } from "../ui/primitives";
 
 const ATTACHMENT_ACCEPT = ".csv,.xls,.xlsx,.doc,.docx,.ppt,.pptx,.pdf,.txt,.gif,.jpg,.jpeg,.png,.bmp,.mp4,.mov";
+const ATTACHMENT_EXTENSIONS = new Set(ATTACHMENT_ACCEPT.split(","));
 
 export function MessagingPage() {
   const { sponsorId, creatorId } = useParams();
@@ -31,6 +32,9 @@ export function MessagingPage() {
   const [recipients, setRecipients] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">(
+    typeof Notification === "undefined" ? "unsupported" : Notification.permission,
+  );
   const typingSocket = useRef<ReturnType<typeof connectProfileRealtime> | null>(null);
   const typingTimer = useRef<number | null>(null);
 
@@ -129,9 +133,51 @@ export function MessagingPage() {
     finally { setBusy(false); }
   }
 
+  async function renameGroup() {
+    if (!selected) return;
+    const title = window.prompt("Group name", selected.title)?.trim();
+    if (!title) return;
+    await api.updateConversationTitle(identityId, selected.id, title);
+    await Promise.all([loadConversation(selected.id), loadSidebar()]);
+  }
+
+  async function addGroupMembers() {
+    if (!selected) return;
+    const available = (await api.connections(identityId, "connected")).items.filter(
+      (item) => !selected.participants.some((participant) => participant.id === item.profile.id),
+    );
+    if (!available.length) { setError("All of your connections are already in this group."); return; }
+    const labels = available.map((item) => item.profile.handle).join(", ");
+    const requested = window.prompt(`Enter one or more handles, separated by commas. Available: ${labels}`);
+    if (!requested) return;
+    const handles = new Set(requested.split(",").map((value) => value.trim().toLowerCase()));
+    const participantIds = available.filter((item) => handles.has(item.profile.handle.toLowerCase())).map((item) => item.profile.id);
+    if (!participantIds.length) { setError("No matching connected profiles were selected."); return; }
+    await api.addConversationMembers(identityId, selected.id, participantIds);
+    await loadConversation(selected.id);
+  }
+
+  async function blockDirectProfile() {
+    const target = selectedOthers[0];
+    if (!target || !window.confirm(`Block ${target.displayName}? The connection will be removed and this direct conversation will become read-only.`)) return;
+    await api.blockProfile(identityId, target.id);
+    setSelected(null); setSelectedId(null); await loadSidebar();
+  }
+
+  async function reportDirectProfile() {
+    const target = selectedOthers[0];
+    if (!target) return;
+    const details = window.prompt(`Describe why you are reporting ${target.displayName}.`);
+    if (!details) return;
+    await api.reportProfile(identityId, target.id, { reason: "other", details });
+    setError("Report submitted for review.");
+  }
+
   return (
     <div className="-m-3 overflow-hidden rounded-[8px] border-2 border-ink/20 bg-surface lg:-m-4">
       {error ? <div className="m-3"><Banner>{error}</Banner></div> : null}
+      {notificationPermission === "default" ? <div className="border-b border-rule bg-accent-soft px-4 py-2 text-sm">Get browser alerts for messages while this tab is in the background. <button type="button" className="font-semibold text-accent underline" onClick={() => void Notification.requestPermission().then(setNotificationPermission)}>Enable notifications</button></div> : null}
+      {selected ? <div className="flex flex-wrap items-center gap-2 border-b border-rule bg-surface px-4 py-2 text-sm"><span className="mr-auto font-medium">Conversation controls</span>{selected.type === "group" ? <><Button type="button" variant="secondary" onClick={() => void renameGroup().catch((err) => setError(err instanceof Error ? err.message : "Could not rename group"))}>Rename group</Button><Button type="button" variant="secondary" onClick={() => void addGroupMembers().catch((err) => setError(err instanceof Error ? err.message : "Could not add members"))}>Add members</Button><Button type="button" variant="ghost" onClick={() => { if (window.confirm("Leave this group?")) void api.leaveConversation(identityId, selected.id).then(() => { setSelected(null); setSelectedId(null); void loadSidebar(); }); }}>Leave group</Button></> : <><Button type="button" variant="ghost" onClick={() => void reportDirectProfile().catch((err) => setError(err instanceof Error ? err.message : "Could not submit report"))}>Report</Button><Button type="button" variant="ghost" onClick={() => void blockDirectProfile().catch((err) => setError(err instanceof Error ? err.message : "Could not block profile"))}>Block</Button></>}</div> : null}
       <div className="grid min-h-[calc(100vh-8rem)] lg:grid-cols-[320px_minmax(360px,1fr)_260px]">
         <aside className="border-r border-rule">
           <div className="flex items-center justify-between border-b border-rule p-4"><div><h1 className="text-lg font-semibold">Messaging</h1><p className="text-xs text-muted">Professional conversations</p></div><Button type="button" onClick={() => void openComposer()}>Compose</Button></div>
@@ -182,6 +228,8 @@ function shortTime(value: string | null) { return value ? new Intl.DateTimeForma
 function addDroppedFiles(event: DragEvent, setFiles: (files: File[]) => void, setError: (message: string | null) => void) {
   event.preventDefault();
   const files = Array.from(event.dataTransfer.files);
+  if (files.length > 10) { setError("A message can contain at most 10 attachments."); return; }
+  if (files.some((file) => !ATTACHMENT_EXTENSIONS.has(`.${file.name.split(".").pop()?.toLowerCase()}`))) { setError("One or more attachment types are not supported."); return; }
   if (files.reduce((sum, file) => sum + file.size, 0) > 20_000_000) { setError("Attachments cannot exceed 20 MB per message."); return; }
   setFiles(files); setError(null);
 }
