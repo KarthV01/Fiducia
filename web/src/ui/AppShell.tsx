@@ -25,9 +25,9 @@ export function AppShell({
   children: ReactNode;
 }) {
   const identityId = `${currentSession.role}:${currentSession.id}`;
-  const [messageBadge, setMessageBadge] = useState(0);
+  const [badges, setBadges] = useState({ unread: 0, requests: 0 });
   const refreshBadge = useCallback(() => {
-    void api.messagingCounts(identityId).then((counts) => setMessageBadge(counts.unread + counts.requests)).catch(() => undefined);
+    void api.messagingCounts(identityId).then(setBadges).catch(() => undefined);
   }, [identityId]);
 
   useEffect(() => {
@@ -64,7 +64,7 @@ export function AppShell({
                 }`
               }
             >
-              <span className="flex items-center justify-between gap-2"><span>{item.label}</span>{item.label === "Messaging" && messageBadge > 0 ? <span className="rounded-full bg-[#c0392b] px-1.5 py-0.5 text-[10px] leading-none text-white">{messageBadge > 99 ? "99+" : messageBadge}</span> : null}</span>
+              <span className="flex items-center justify-between gap-2"><span>{item.label}</span><NavBadge count={item.label === "Messaging" ? badges.unread : item.label === "Network" ? badges.requests : 0} /></span>
             </NavLink>
           ))}
         </nav>
@@ -81,4 +81,8 @@ export function AppShell({
       </div>
     </div>
   );
+}
+
+function NavBadge({ count }: { count: number }) {
+  return count > 0 ? <span className="rounded-full bg-[#c0392b] px-1.5 py-0.5 text-[10px] leading-none text-white">{count > 99 ? "99+" : count}</span> : null;
 }
