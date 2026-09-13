@@ -341,7 +341,7 @@ function emptyToNull(value: string | undefined): string | null {
   return value?.trim() ? value.trim() : null;
 }
 
-function socialIdentityDataForSponsor(sponsor: SponsorProfile) {
+export function socialIdentityDataForSponsor(sponsor: SponsorProfile) {
   return {
     id: `sponsor:${sponsor.id}`,
     userId: sponsor.userId,
@@ -355,7 +355,7 @@ function socialIdentityDataForSponsor(sponsor: SponsorProfile) {
   };
 }
 
-function socialIdentityDataForCreator(creator: CreatorProfile) {
+export function socialIdentityDataForCreator(creator: CreatorProfile) {
   return {
     id: `creator:${creator.id}`,
     userId: creator.userId,

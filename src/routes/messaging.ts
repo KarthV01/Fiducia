@@ -5,25 +5,25 @@ import { requireUser } from "../accounts/auth.js";
 import { badRequest } from "../http/errors.js";
 import { LocalDeliverableStorage } from "../services/deliverableStorage.js";
 import type { RealtimePublisher } from "../services/realtimeService.js";
+import { messagingCounts } from "../services/messagingService.js";
 import { addGroupMembers, appendMessageAttachment, completeMessageAttachment, createGroupConversation, createProfileReport, deleteMessage, editMessage, ensureDirectConversation, getConversation, getOwnedSocialIdentityForMessaging, initializeMessageAttachment, leaveGroup, listConversations, listMessages, requireAttachmentAccess, sendMessage, toggleReaction, updateConversationState, updateGroupMember, updateGroupTitle } from "../services/messagingService.js";
 
 const storage = new LocalDeliverableStorage();
 const groupSchema = z.object({ title: z.string().min(1).max(100), participantIds: z.array(z.string().min(1)).min(1).max(49) });
 const messageSchema = z.object({ clientMessageId: z.string().min(1).max(100), body: z.string().max(8000).optional(), replyToId: z.string().optional(), attachmentIds: z.array(z.string().uuid()).max(10).optional() });
-const stateSchema = z.object({ read: z.boolean().optional(), archived: z.boolean().optional(), starred: z.boolean().optional(), mutedUntil: z.coerce.date().nullable().optional(), draftText: z.string().max(8000).nullable().optional() });
+const stateSchema = z.object({ read: z.boolean().optional(), readThrough: z.coerce.date().optional(), archived: z.boolean().optional(), starred: z.boolean().optional(), mutedUntil: z.coerce.date().nullable().optional(), draftText: z.string().max(8000).nullable().optional() });
 const attachmentSchema = z.object({ fileName: z.string().min(1).max(255), mimeType: z.string().min(1), totalSize: z.number().int().positive() });
+const inboxSchema = z.object({ bucket: z.enum(["inbox", "unread", "starred", "archived", "groups"]).optional(), q: z.string().max(100).optional(), cursor: z.string().optional(), limit: z.coerce.number().int().min(1).max(50).default(30) });
 
 export async function registerMessagingRoutes(app: FastifyInstance, deps: { prisma: PrismaClient; realtime?: RealtimePublisher }) {
   const { prisma } = deps;
   app.get<{ Params: { identityId: string }; Querystring: { bucket?: string; q?: string } }>("/api/profiles/:identityId/conversations", async (request) => {
     const identity = await ownedIdentity(prisma, request, request.params.identityId);
-    return { items: await listConversations(prisma, identity.id, request.query), nextCursor: null };
+    return listConversations(prisma, identity.id, inboxSchema.parse(request.query));
   });
   app.get<{ Params: { identityId: string } }>("/api/profiles/:identityId/messaging-counts", async (request) => {
     const identity = await ownedIdentity(prisma, request, request.params.identityId);
-    const conversations = await listConversations(prisma, identity.id, { bucket: "unread" });
-    const requests = await prisma.connection.count({ where: { recipientId: identity.id, status: "pending" } });
-    return { unread: conversations.reduce((sum, item) => sum + item.unreadCount, 0), requests };
+    return messagingCounts(prisma, identity.id);
   });
   app.post<{ Params: { identityId: string } }>("/api/profiles/:identityId/conversations/direct", async (request, reply) => {
     const identity = await ownedIdentity(prisma, request, request.params.identityId);
@@ -79,8 +79,9 @@ export async function registerMessagingRoutes(app: FastifyInstance, deps: { pris
   });
   app.patch<{ Params: { identityId: string; conversationId: string } }>("/api/profiles/:identityId/conversations/:conversationId/state", async (request) => {
     const identity = await ownedIdentity(prisma, request, request.params.identityId);
-    const state = await updateConversationState(prisma, identity.id, request.params.conversationId, stateSchema.parse(request.body));
-    if (state.lastReadAt) await publishConversation(prisma, deps.realtime, request.params.conversationId, "conversation.read", { identityId: identity.id, readAt: state.lastReadAt });
+    const input = stateSchema.parse(request.body);
+    const state = await updateConversationState(prisma, identity.id, request.params.conversationId, input);
+    if (state.readChanged) await publishConversation(prisma, deps.realtime, request.params.conversationId, "conversation.read", { identityId: identity.id, readAt: state.lastReadAt });
     return state;
   });
   app.post<{ Params: { identityId: string; conversationId: string } }>("/api/profiles/:identityId/conversations/:conversationId/members", async (request) => {

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { conflict, forbidden, notFound } from "../http/errors.js";
 import type { DeliverableStorage } from "./deliverableStorage.js";
 import { areConnected, getOwnedSocialIdentity, presentSocialProfile } from "./networkService.js";
@@ -48,33 +48,84 @@ export async function createGroupConversation(prisma: PrismaClient, creatorId: s
   return prisma.conversation.create({ data: { type: "group", title: title.trim(), createdById: creatorId, participants: { create: [{ identityId: creatorId, role: "owner" }, ...uniqueIds.map((identityId) => ({ identityId, role: "member" }))] } } });
 }
 
-export async function listConversations(prisma: PrismaClient, identityId: string, input: { bucket?: string; q?: string }) {
-  const query = input.q?.trim().toLowerCase() ?? "";
-  const matchingMessages = query ? await prisma.message.findMany({ where: { body: { contains: query } }, select: { conversationId: true } }) : [];
-  const matchingConversationIds = new Set(matchingMessages.map((message) => message.conversationId));
+type ReadPosition = { conversationId: string; lastReadAt: Date | null; joinedAt: Date };
+
+async function unreadCounts(prisma: PrismaClient, identityId: string, memberships: ReadPosition[]) {
+  const counts = new Map<string, number>();
+  // Bound the predicate size for SQLite while avoiding a query per conversation.
+  for (let offset = 0; offset < memberships.length; offset += 100) {
+    const rows = await prisma.message.groupBy({
+      by: ["conversationId"],
+      where: {
+        senderId: { not: identityId },
+        deletedAt: null,
+        OR: memberships.slice(offset, offset + 100).map((member) => ({
+          conversationId: member.conversationId,
+          createdAt: { gt: member.lastReadAt ?? member.joinedAt },
+        })),
+      },
+      _count: { _all: true },
+    });
+    for (const row of rows) counts.set(row.conversationId, row._count._all);
+  }
+  return counts;
+}
+
+export async function messagingCounts(prisma: PrismaClient, identityId: string) {
+  const [memberships, requests] = await Promise.all([
+    prisma.conversationParticipant.findMany({
+      where: { identityId, leftAt: null, archivedAt: null },
+      select: { conversationId: true, lastReadAt: true, joinedAt: true },
+    }),
+    prisma.connection.count({ where: { recipientId: identityId, status: "pending" } }),
+  ]);
+  const counts = await unreadCounts(prisma, identityId, memberships);
+  return { unread: [...counts.values()].reduce((sum, count) => sum + count, 0), requests };
+}
+
+export async function listConversations(prisma: PrismaClient, identityId: string, input: { bucket?: string; q?: string; cursor?: string; limit?: number }) {
+  const query = input.q?.trim() ?? "";
+  const limit = input.limit ?? 30;
+  let unread: Map<string, number> | undefined;
+  if (input.bucket === "unread") {
+    const positions = await prisma.conversationParticipant.findMany({
+      where: { identityId, leftAt: null, archivedAt: null },
+      select: { conversationId: true, lastReadAt: true, joinedAt: true },
+    });
+    unread = await unreadCounts(prisma, identityId, positions);
+  }
+  const where: Prisma.ConversationParticipantWhereInput = {
+    identityId, leftAt: null,
+    archivedAt: input.bucket === "archived" ? { not: null } : null,
+    ...(input.bucket === "starred" ? { starredAt: { not: null } } : {}),
+    ...(unread ? { conversationId: { in: [...unread.keys()] } } : {}),
+    conversation: {
+      ...(input.bucket === "groups" ? { type: "group" } : {}),
+      ...(query ? { OR: [
+        { title: { contains: query } },
+        { participants: { some: { leftAt: null, identity: { OR: [{ displayName: { contains: query } }, { handle: { contains: query } }] } } } },
+        { messages: { some: { deletedAt: null, body: { contains: query } } } },
+      ] } : {}),
+    },
+  };
   const memberships = await prisma.conversationParticipant.findMany({
-    where: { identityId, leftAt: null },
+    where,
     include: { conversation: { include: { participants: { where: { leftAt: null }, include: { identity: true } }, messages: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 1, include: messageInclude } } } },
-    orderBy: { conversation: { lastMessageAt: "desc" } },
+    orderBy: [{ conversation: { lastMessageAt: "desc" } }, { id: "desc" }],
+    take: limit + 1,
+    ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
   });
-  const filtered = memberships.filter((membership) => {
-    const conversation = membership.conversation;
-    if (input.bucket === "archived" && !membership.archivedAt) return false;
-    if (input.bucket !== "archived" && membership.archivedAt) return false;
-    if (input.bucket === "starred" && !membership.starredAt) return false;
-    if (input.bucket === "groups" && conversation.type !== "group") return false;
-    if (input.bucket === "unread" && (!conversation.lastMessageAt || (membership.lastReadAt && membership.lastReadAt >= conversation.lastMessageAt))) return false;
-    if (!query) return true;
-    return matchingConversationIds.has(conversation.id) || [conversation.title, ...conversation.participants.map((item) => item.identity.displayName)].filter(Boolean).some((value) => value!.toLowerCase().includes(query));
-  });
-  return Promise.all(filtered.map(async (membership) => ({
-    ...presentConversation(membership.conversation, identityId),
-    archived: !!membership.archivedAt,
-    starred: !!membership.starredAt,
-    mutedUntil: membership.mutedUntil,
-    draftText: membership.draftText,
-    unreadCount: await prisma.message.count({ where: { conversationId: membership.conversationId, createdAt: { gt: membership.lastReadAt ?? membership.joinedAt }, senderId: { not: identityId } } }),
-  })));
+  const page = memberships.slice(0, limit);
+  const counts = unread ?? await unreadCounts(prisma, identityId, page);
+  return {
+    items: page.map((membership) => ({
+      ...presentConversation(membership.conversation, identityId),
+      archived: !!membership.archivedAt, starred: !!membership.starredAt,
+      mutedUntil: membership.mutedUntil, draftText: membership.draftText,
+      unreadCount: counts.get(membership.conversationId) ?? 0,
+    })),
+    nextCursor: memberships.length > limit ? page.at(-1)!.id : null,
+  };
 }
 
 export async function getConversation(prisma: PrismaClient, identityId: string, conversationId: string) {
@@ -156,9 +207,20 @@ export async function toggleReaction(prisma: PrismaClient, identityId: string, c
   return { active: true };
 }
 
-export async function updateConversationState(prisma: PrismaClient, identityId: string, conversationId: string, input: { read?: boolean; archived?: boolean; starred?: boolean; mutedUntil?: Date | null; draftText?: string | null }) {
+export async function updateConversationState(prisma: PrismaClient, identityId: string, conversationId: string, input: { read?: boolean; readThrough?: Date; archived?: boolean; starred?: boolean; mutedUntil?: Date | null; draftText?: string | null }) {
   const membership = await requireParticipant(prisma, identityId, conversationId);
-  return prisma.conversationParticipant.update({ where: { id: membership.id }, data: { ...(input.read ? { lastReadAt: new Date() } : {}), ...(input.archived !== undefined ? { archivedAt: input.archived ? new Date() : null } : {}), ...(input.starred !== undefined ? { starredAt: input.starred ? new Date() : null } : {}), ...(input.mutedUntil !== undefined ? { mutedUntil: input.mutedUntil } : {}), ...(input.draftText !== undefined ? { draftText: input.draftText } : {}) } });
+  const latest = input.read ? await prisma.message.findFirst({ where: { conversationId }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: { createdAt: true } }) : null;
+  const readAt = latest ? new Date(Math.min(latest.createdAt.getTime(), input.readThrough?.getTime() ?? latest.createdAt.getTime())) : null;
+  const readChanged = !!readAt && (!membership.lastReadAt || readAt > membership.lastReadAt);
+  const data = {
+    ...(readChanged ? { lastReadAt: readAt } : {}),
+    ...(input.archived !== undefined ? { archivedAt: input.archived ? new Date() : null } : {}),
+    ...(input.starred !== undefined ? { starredAt: input.starred ? new Date() : null } : {}),
+    ...(input.mutedUntil !== undefined ? { mutedUntil: input.mutedUntil } : {}),
+    ...(input.draftText !== undefined ? { draftText: input.draftText } : {}),
+  };
+  const state = Object.keys(data).length ? await prisma.conversationParticipant.update({ where: { id: membership.id }, data }) : membership;
+  return { ...state, readChanged };
 }
 
 export async function addGroupMembers(prisma: PrismaClient, identityId: string, conversationId: string, participantIds: string[]) {

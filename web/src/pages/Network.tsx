@@ -1,6 +1,9 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../lib/api";
+import { ProfileAvatar as Avatar } from "../ui/ProfileAvatar";
+import { useDebouncedValue } from "../lib/useDebouncedValue";
+import { useProfileRealtime } from "../lib/useProfileRealtime";
 import type { ConnectionRequest, SocialProfile } from "../lib/types";
 import { Banner, Button, EmptyState, Input, PageHeader, Select } from "../ui/primitives";
 
@@ -14,6 +17,9 @@ export function NetworkPage() {
   const basePath = `/${role}/${profileId}`;
   const [tab, setTab] = useState<NetworkTab>("discover");
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(query);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const requestVersion = useRef(0);
   const [profileType, setProfileType] = useState("all");
   const [relationship, setRelationship] = useState("all");
   const [profiles, setProfiles] = useState<SocialProfile[]>([]);
@@ -26,28 +32,39 @@ export function NetworkPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (cursor?: string) => {
+    const version = ++requestVersion.current;
     setError(null);
     try {
       if (tab === "discover") {
-        const result = await api.searchProfiles(identityId, { q: query, relationship, profileType });
-        setProfiles(result.items);
+        const result = await api.searchProfiles(identityId, { q: debouncedQuery, relationship, profileType, cursor });
+        if (version !== requestVersion.current) return;
+        setProfiles((current) => cursor ? [...current, ...result.items.filter((item) => !current.some((old) => old.id === item.id))] : result.items);
+        setNextCursor(result.nextCursor);
       } else if (tab === "connections") {
-        setConnections((await api.connections(identityId, "connected")).items);
+        const result = await api.connections(identityId, "connected");
+        if (version === requestVersion.current) setConnections(result.items);
       } else {
         const [received, sent] = await Promise.all([
           api.connections(identityId, "incoming"),
           api.connections(identityId, "outgoing"),
         ]);
+        if (version !== requestVersion.current) return;
         setIncoming(received.items);
         setOutgoing(sent.items);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load your network");
     }
-  }, [identityId, profileType, query, relationship, tab]);
+  }, [identityId, profileType, debouncedQuery, relationship, tab]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    return () => { requestVersion.current++; };
+  }, [load]);
+  useProfileRealtime(identityId, (event) => {
+    if (event.type === "connection.updated" || event.type === "ready") void load();
+  });
 
   async function mutate(action: () => Promise<unknown>, success: string) {
     setBusy(true);
@@ -55,6 +72,7 @@ export function NetworkPage() {
     setMessage(null);
     try {
       await action();
+      window.dispatchEvent(new CustomEvent("messaging:changed"));
       setMessage(success);
       setNoteFor(null);
       setNote("");
@@ -86,6 +104,7 @@ export function NetworkPage() {
         </form>
         <ProfileGrid profiles={profiles} role={role} basePath={basePath} busy={busy} noteFor={noteFor} note={note} setNote={setNote} setNoteFor={setNoteFor} onConnect={(profile) => mutate(() => api.requestConnection(identityId, profile.id, note), `Connection request sent to ${profile.displayName}.`)} />
       </> : null}
+      {tab === "discover" && nextCursor ? <Button type="button" variant="ghost" onClick={() => void load(nextCursor)}>Load more profiles</Button> : null}
 
       {tab === "connections" ? connections.length
         ? <div className="grid gap-3 lg:grid-cols-2">{connections.map((item) => <ConnectionCard key={item.id} item={item} role={role} basePath={basePath} busy={busy} onRemove={() => mutate(() => api.removeConnection(identityId, item.id), "Connection removed.")} />)}</div>
@@ -119,7 +138,7 @@ function ConnectionCard({ item, role, basePath, busy, onAccept, onDecline, onWit
 }
 
 function ProfileHeading({ profile }: { profile: SocialProfile }) {
-  return <div className="flex items-center gap-3"><div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent-soft font-semibold text-accent">{profile.avatarUrl ? <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" /> : profile.displayName.slice(0, 1).toUpperCase()}</div><div className="min-w-0"><div className="truncate font-semibold text-ink">{profile.displayName}</div><div className="truncate text-xs text-muted">{profile.handle} · <span className="capitalize">{profile.profileType}</span></div><div className="mt-0.5 truncate text-xs text-muted">{profile.descriptor}</div></div></div>;
+  return <div className="flex items-center gap-3"><Avatar profile={profile} /><div className="min-w-0"><div className="truncate font-semibold text-ink">{profile.displayName}</div><div className="truncate text-xs text-muted">{profile.handle} · <span className="capitalize">{profile.profileType}</span></div><div className="mt-0.5 truncate text-xs text-muted">{profile.descriptor}</div></div></div>;
 }
 
 function LinkButton({ to, secondary = false, children }: { to: string; secondary?: boolean; children: string }) {

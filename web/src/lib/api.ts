@@ -89,8 +89,6 @@ export const api = {
       method: "POST",
       body: JSON.stringify(input),
     }),
-  searchCreators: (q: string) =>
-    request<{ creators: CreatorProfile[] }>(`/api/creators/search?q=${encodeURIComponent(q)}`),
   searchProfiles: (identityId: string, input: { q?: string; relationship?: string; profileType?: string; cursor?: string }) => {
     const params = new URLSearchParams();
     if (input.q) params.set("q", input.q);
@@ -114,9 +112,10 @@ export const api = {
   reportProfile: (identityId: string, targetId: string, input: { messageId?: string; reason: "spam" | "harassment" | "fraud" | "other"; details?: string }) =>
     request(`/api/profiles/${encodeURIComponent(identityId)}/reports/${encodeURIComponent(targetId)}`, { method: "POST", body: JSON.stringify(input) }),
   messagingCounts: (identityId: string) => request<MessagingCounts>(`/api/profiles/${encodeURIComponent(identityId)}/messaging-counts`),
-  conversations: (identityId: string, input: { bucket?: string; q?: string } = {}) => {
+  conversations: (identityId: string, input: { bucket?: string; q?: string; cursor?: string } = {}) => {
     const params = new URLSearchParams();
     if (input.bucket) params.set("bucket", input.bucket);
+    if (input.cursor) params.set("cursor", input.cursor);
     if (input.q) params.set("q", input.q);
     return request<Paginated<ConversationSummary>>(`/api/profiles/${encodeURIComponent(identityId)}/conversations?${params}`);
   },
@@ -128,23 +127,14 @@ export const api = {
   editMessage: (identityId: string, conversationId: string, messageId: string, body: string) => request<ChatMessage>(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/messages/${messageId}`, { method: "PATCH", body: JSON.stringify({ body }) }),
   deleteMessage: (identityId: string, conversationId: string, messageId: string) => request<void>(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/messages/${messageId}`, { method: "DELETE" }),
   reactToMessage: (identityId: string, conversationId: string, messageId: string, emoji: string) => request<{ active: boolean }>(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/messages/${messageId}/reactions`, { method: "POST", body: JSON.stringify({ emoji }) }),
-  updateConversationState: (identityId: string, conversationId: string, input: { read?: boolean; archived?: boolean; starred?: boolean; mutedUntil?: string | null; draftText?: string | null }) => request(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/state`, { method: "PATCH", body: JSON.stringify(input) }),
+  updateConversationState: (identityId: string, conversationId: string, input: { read?: boolean; readThrough?: string; archived?: boolean; starred?: boolean; mutedUntil?: string | null; draftText?: string | null }) => request(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/state`, { method: "PATCH", body: JSON.stringify(input) }),
   addConversationMembers: (identityId: string, conversationId: string, participantIds: string[]) => request(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/members`, { method: "POST", body: JSON.stringify({ participantIds }) }),
   updateConversationTitle: (identityId: string, conversationId: string, title: string) => request(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}`, { method: "PATCH", body: JSON.stringify({ title }) }),
   updateGroupMember: (identityId: string, conversationId: string, targetId: string, action: "promote" | "demote" | "remove") => request(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/members/${encodeURIComponent(targetId)}`, { method: "PATCH", body: JSON.stringify({ action }) }),
   leaveConversation: (identityId: string, conversationId: string) => request<void>(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/members/me`, { method: "DELETE" }),
   uploadMessageAttachment: async (identityId: string, conversationId: string, file: File, onProgress?: (percent: number) => void) => {
     const attachment = await request<MessageAttachment>(`/api/profiles/${encodeURIComponent(identityId)}/conversations/${conversationId}/attachments`, { method: "POST", body: JSON.stringify({ fileName: file.name, mimeType: file.type || "application/octet-stream", totalSize: file.size }) });
-    const chunkSize = 4 * 1024 * 1024;
-    let offset = 0;
-    while (offset < file.size) {
-      const chunk = file.slice(offset, Math.min(offset + chunkSize, file.size));
-      const response = await fetch(`/api/profiles/${encodeURIComponent(identityId)}/attachments/${attachment.id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/octet-stream", "Upload-Offset": String(offset) }, body: chunk });
-      if (!response.ok) throw new ApiError(response.status, `Attachment upload failed (${response.status})`);
-      offset = Number(response.headers.get("Upload-Offset") ?? offset + chunk.size);
-      onProgress?.(Math.round(offset / file.size * 100));
-    }
-    await request(`/api/profiles/${encodeURIComponent(identityId)}/attachments/${attachment.id}/complete`, { method: "POST" });
+    await uploadChunks(`/api/profiles/${encodeURIComponent(identityId)}/attachments/${attachment.id}`, file, 0, onProgress);
     return attachment.id;
   },
   brandDashboard: (sponsorId: string) => request<BrandDashboard>(`/api/sponsors/${sponsorId}/dashboard`),
@@ -164,16 +154,7 @@ export const api = {
     }),
   uploadCheckpointFile: async (creatorId: string, agreementId: string, checkpoint: "promo" | "final_cut", file: File, onProgress: (percent: number) => void, existing?: UploadSession, signal?: AbortSignal) => {
     const upload = existing ?? await request<UploadSession>(`/api/creators/${creatorId}/contracts/${agreementId}/uploads`, { method: "POST", body: JSON.stringify({ checkpoint, fileName: file.name, mimeType: file.type || "application/octet-stream", totalSize: String(file.size) }) });
-    const chunkSize = 4 * 1024 * 1024;
-    let offset = Number(upload.receivedSize);
-    while (offset < file.size) {
-      const chunk = file.slice(offset, Math.min(offset + chunkSize, file.size));
-      const response = await fetch(`/api/creators/${creatorId}/contracts/${agreementId}/uploads/${upload.id}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/octet-stream", "Upload-Offset": String(offset) }, body: chunk, signal });
-      if (!response.ok) throw new ApiError(response.status, `Upload failed (${response.status})`);
-      offset = Number(response.headers.get("Upload-Offset") ?? offset + chunk.size);
-      onProgress(Math.round((offset / file.size) * 100));
-    }
-    await request(`/api/creators/${creatorId}/contracts/${agreementId}/uploads/${upload.id}/complete`, { method: "POST" });
+    await uploadChunks(`/api/creators/${creatorId}/contracts/${agreementId}/uploads/${upload.id}`, file, Number(upload.receivedSize), onProgress, signal);
     return upload.id;
   },
   submitCheckpoint: (creatorId: string, agreementId: string, checkpoint: "promo" | "final_cut", input: { uploadId: string; notes?: string; attested: true }) => request(`/api/creators/${creatorId}/contracts/${agreementId}/checkpoints/${checkpoint}/submissions`, { method: "POST", body: JSON.stringify(input) }),
@@ -195,3 +176,18 @@ export const api = {
   connectYouTube: (creatorId: string, agreementId: string) => request<{ authorizationUrl: string }>(`/api/creators/${creatorId}/contracts/${agreementId}/youtube/connect`, { method: "POST" }),
   createPublication: (creatorId: string, agreementId: string, input: { method: "manual"; youtubeUrl: string } | { method: "service"; title: string; description: string }) => request(`/api/creators/${creatorId}/contracts/${agreementId}/publications`, { method: "POST", body: JSON.stringify(input) }),
 };
+
+// Both private-file flows use the same resumable transport and error handling.
+async function uploadChunks(path: string, file: File, initialOffset: number, onProgress?: (percent: number) => void, signal?: AbortSignal) {
+  let offset = initialOffset;
+  while (offset < file.size) {
+    const chunk = file.slice(offset, Math.min(offset + 4 * 1024 * 1024, file.size));
+    const response = await fetch(path, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/octet-stream", "Upload-Offset": String(offset) }, body: chunk, signal });
+    if (!response.ok) throw new ApiError(response.status, `Upload failed (${response.status})`);
+    const received = Number(response.headers.get("Upload-Offset") ?? offset + chunk.size);
+    if (!Number.isSafeInteger(received) || received <= offset || received > file.size) throw new Error("Server returned an invalid upload offset.");
+    offset = received;
+    onProgress?.(Math.round(offset / file.size * 100));
+  }
+  await request(`${path}/complete`, { method: "POST", signal });
+}

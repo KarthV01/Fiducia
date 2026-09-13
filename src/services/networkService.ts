@@ -1,5 +1,6 @@
-import type { CreatorProfile, PrismaClient, SocialIdentity, SponsorProfile } from "@prisma/client";
+import type { PrismaClient, SocialIdentity } from "@prisma/client";
 import { conflict, notFound } from "../http/errors.js";
+import { socialIdentityDataForCreator, socialIdentityDataForSponsor } from "../accounts/profiles.js";
 
 export const CONNECTION_STATUS = {
   pending: "pending",
@@ -16,16 +17,17 @@ export function socialIdentityId(profileType: "sponsor" | "creator", profileId: 
 }
 
 export async function ensureSocialIdentities(prisma: PrismaClient) {
-  const [sponsors, creators] = await Promise.all([
+  const [sponsors, creators, identities] = await Promise.all([
     prisma.sponsorProfile.findMany(),
     prisma.creatorProfile.findMany(),
+    prisma.socialIdentity.findMany({ select: { id: true } }),
   ]);
-  for (const sponsor of sponsors) await ensureSponsorIdentity(prisma, sponsor);
-  for (const creator of creators) await ensureCreatorIdentity(prisma, creator);
+  const existing = new Set(identities.map((identity) => identity.id));
+  const missing = [...sponsors.map(socialIdentityDataForSponsor), ...creators.map(socialIdentityDataForCreator)].filter((data) => !existing.has(data.id));
+  if (missing.length) await prisma.$transaction(missing.map((data) => prisma.socialIdentity.create({ data })));
 }
 
 export async function getOwnedSocialIdentity(prisma: PrismaClient, userId: string, identityId: string) {
-  await ensureSocialIdentities(prisma);
   const identity = await prisma.socialIdentity.findUnique({ where: { id: identityId } });
   if (!identity || identity.userId !== userId) throw notFound("Profile not found.");
   return identity;
@@ -36,11 +38,9 @@ export async function searchSocialProfiles(
   activeIdentityId: string,
   input: { q?: string; relationship?: string; profileType?: string; cursor?: string; limit?: number },
 ) {
-  await ensureSocialIdentities(prisma);
   const limit = Math.min(Math.max(input.limit ?? 20, 1), 50);
   const query = input.q?.trim().toLowerCase() ?? "";
-  const [identities, connections, blocks] = await Promise.all([
-    prisma.socialIdentity.findMany({ take: 500, orderBy: [{ displayName: "asc" }, { id: "asc" }] }),
+  const [connections, blocks] = await Promise.all([
     prisma.connection.findMany({
       where: { OR: [{ requesterId: activeIdentityId }, { recipientId: activeIdentityId }] },
     }),
@@ -55,15 +55,23 @@ export async function searchSocialProfiles(
     connectionByIdentity.set(otherId, connection);
   }
 
-  const candidates = identities
-    .filter((identity) => identity.id !== activeIdentityId && !blockedIds.has(identity.id))
-    .filter((identity) => !input.profileType || input.profileType === "all" || identity.profileType === input.profileType)
-    .filter((identity) => query.length < 2 || identity.searchText.includes(query))
-    .map((identity) => presentSocialProfile(identity, relationshipFor(activeIdentityId, connectionByIdentity.get(identity.id))))
-    .filter((identity) => !input.relationship || input.relationship === "all" || identity.relationship === input.relationship);
-  const start = input.cursor ? Math.max(0, candidates.findIndex((item) => item.id === input.cursor) + 1) : 0;
-  const items = candidates.slice(start, start + limit);
-  return { items, nextCursor: start + limit < candidates.length ? items.at(-1)?.id ?? null : null };
+  const relatedIds = [...connectionByIdentity].filter(([, connection]) => relationshipFor(activeIdentityId, connection) !== "none").map(([id]) => id);
+  const matchingIds = [...connectionByIdentity].filter(([, connection]) => relationshipFor(activeIdentityId, connection) === input.relationship).map(([id]) => id);
+  const identities = await prisma.socialIdentity.findMany({
+    where: {
+      id: {
+        notIn: [activeIdentityId, ...blockedIds, ...(input.relationship === "none" ? relatedIds : [])],
+        ...(input.relationship && !["all", "none"].includes(input.relationship) ? { in: matchingIds } : {}),
+      },
+      ...(input.profileType && input.profileType !== "all" ? { profileType: input.profileType } : {}),
+      ...(query ? { searchText: { contains: query } } : {}),
+    },
+    orderBy: [{ displayName: "asc" }, { id: "asc" }],
+    take: limit + 1,
+    ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
+  });
+  const items = identities.slice(0, limit).map((identity) => presentSocialProfile(identity, relationshipFor(activeIdentityId, connectionByIdentity.get(identity.id))));
+  return { items, nextCursor: identities.length > limit ? items.at(-1)!.id : null };
 }
 
 export async function listConnections(prisma: PrismaClient, identityId: string, bucket: "incoming" | "outgoing" | "connected") {
@@ -175,18 +183,4 @@ function connectionPairKey(firstId: string, secondId: string) {
 async function ensureNotBlocked(prisma: PrismaClient, firstId: string, secondId: string) {
   const block = await prisma.profileBlock.findFirst({ where: { OR: [{ blockerId: firstId, blockedId: secondId }, { blockerId: secondId, blockedId: firstId }] } });
   if (block) throw conflict("These profiles cannot connect.");
-}
-
-async function ensureSponsorIdentity(prisma: PrismaClient, sponsor: SponsorProfile) {
-  const id = socialIdentityId("sponsor", sponsor.id);
-  const existing = await prisma.socialIdentity.findUnique({ where: { id } });
-  if (existing) return existing;
-  return prisma.socialIdentity.create({ data: { id, userId: sponsor.userId, profileType: "sponsor", sponsorProfileId: sponsor.id, handle: sponsor.handle, displayName: sponsor.name, avatarUrl: sponsor.logoUrl, descriptor: sponsor.industry, searchText: [sponsor.name, sponsor.handle, sponsor.industry].join(" ").toLowerCase() } });
-}
-
-async function ensureCreatorIdentity(prisma: PrismaClient, creator: CreatorProfile) {
-  const id = socialIdentityId("creator", creator.id);
-  const existing = await prisma.socialIdentity.findUnique({ where: { id } });
-  if (existing) return existing;
-  return prisma.socialIdentity.create({ data: { id, userId: creator.userId, profileType: "creator", creatorProfileId: creator.id, handle: creator.handle, displayName: creator.displayName, avatarUrl: creator.avatarUrl, descriptor: creator.category, searchText: [creator.displayName, creator.handle, creator.category, creator.audience].filter(Boolean).join(" ").toLowerCase() } });
 }

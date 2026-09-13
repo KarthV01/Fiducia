@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import { queryRows } from "./queryRows.js";
 import type {
   ChainClient,
   ApproveCheckpointInput,
@@ -672,10 +673,7 @@ export class FakePrisma {
         (where.id && item.id === where.id) ||
         (where.sponsorProfileId && item.sponsorProfileId === where.sponsorProfileId) ||
         (where.creatorProfileId && item.creatorProfileId === where.creatorProfileId)) ?? null,
-    findMany: async ({ where, take }: { where?: { userId?: string; id?: { in: string[] } }; take?: number } = {}) => {
-      const rows = this.socialIdentities.filter((item) => (!where?.userId || item.userId === where.userId) && (!where?.id?.in || where.id.in.includes(item.id)));
-      return take ? rows.slice(0, take) : rows;
-    },
+    findMany: async (args: any = {}) => queryRows(this.socialIdentities, args),
     update: async ({ where, data }: { where: { id: string }; data: Partial<SocialIdentityRow> }) => {
       const row = this.socialIdentities.find((item) => item.id === where.id);
       if (!row) throw new Error("Social identity not found");
@@ -693,7 +691,7 @@ export class FakePrisma {
     },
     findUnique: async ({ where }: { where: { id?: string; pairKey?: string } }) => this.connections.find((item) => (where.id && item.id === where.id) || (where.pairKey && item.pairKey === where.pairKey)) ?? null,
     findMany: async () => [...this.connections],
-    count: async ({ where }: { where?: { requesterId?: string; status?: string } } = {}) => this.connections.filter((item) => (!where?.requesterId || item.requesterId === where.requesterId) && (!where?.status || item.status === where.status)).length,
+    count: async (args: any = {}) => queryRows(this.connections, args).length,
     update: async ({ where, data }: { where: { id: string }; data: Partial<ConnectionRow> }) => {
       const row = this.connections.find((item) => item.id === where.id);
       if (!row) throw new Error("Connection not found");
@@ -747,7 +745,7 @@ export class FakePrisma {
     },
     findUnique: async ({ where }: { where: any }) => this.conversationParticipants.find((item) => item.conversationId === where.conversationId_identityId?.conversationId && item.identityId === where.conversationId_identityId?.identityId) ?? null,
     findFirst: async ({ where }: { where: any }) => this.conversationParticipants.find((item) => item.conversationId === where.conversationId && (typeof where.identityId === "string" ? item.identityId === where.identityId : item.identityId !== where.identityId?.not) && (!Object.hasOwn(where, "leftAt") || item.leftAt === where.leftAt)) ?? null,
-    findMany: async ({ where, include }: { where: any; include?: any }) => this.conversationParticipants.filter((item) => (!where.identityId || item.identityId === where.identityId) && (!Object.hasOwn(where, "leftAt") || item.leftAt === where.leftAt)).map((item) => include?.conversation ? { ...item, conversation: this.hydrateConversation(this.conversations.find((conversation) => conversation.id === item.conversationId)) } : item),
+    findMany: async (args: any) => queryRows(this.conversationParticipants.map((item) => ({ ...item, identity: this.socialIdentities.find((identity) => identity.id === item.identityId), conversation: this.hydrateConversation(this.conversations.find((conversation) => conversation.id === item.conversationId)) })), args),
     update: async ({ where, data }: { where: { id: string }; data: any }) => {
       const row = this.conversationParticipants.find((item) => item.id === where.id);
       if (!row) throw new Error("Participant not found");
@@ -761,6 +759,12 @@ export class FakePrisma {
   };
 
   message = {
+    findFirst: async (args: any) => queryRows(this.messages, args)[0] ?? null,
+    groupBy: async (args: any) => {
+      const counts = new Map<string, number>();
+      for (const row of queryRows(this.messages, args)) counts.set(row.conversationId, (counts.get(row.conversationId) ?? 0) + 1);
+      return [...counts].map(([conversationId, count]) => ({ conversationId, _count: { _all: count } }));
+    },
     create: async ({ data }: { data: any }) => {
       const now = data.createdAt ?? new Date();
       const row = { id: data.id ?? this.id("message"), conversationId: data.conversationId, senderId: data.senderId, clientMessageId: data.clientMessageId, type: data.type ?? "user", body: data.body ?? null, replyToId: data.replyToId ?? null, editedAt: data.editedAt ?? null, deletedAt: data.deletedAt ?? null, createdAt: now, updatedAt: now };

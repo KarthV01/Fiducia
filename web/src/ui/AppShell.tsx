@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import type { Session } from "../lib/session";
 import { AccountSwitcher } from "./AccountSwitcher";
@@ -26,8 +26,16 @@ export function AppShell({
 }) {
   const identityId = `${currentSession.role}:${currentSession.id}`;
   const [badges, setBadges] = useState({ unread: 0, requests: 0 });
+  const badgeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const badgeVersion = useRef(0);
   const refreshBadge = useCallback(() => {
-    void api.messagingCounts(identityId).then(setBadges).catch(() => undefined);
+    clearTimeout(badgeTimer.current);
+    const version = ++badgeVersion.current;
+    badgeTimer.current = setTimeout(() => {
+      void api.messagingCounts(identityId).then((counts) => {
+        if (badgeVersion.current === version) setBadges(counts);
+      }).catch(() => undefined);
+    }, 100);
   }, [identityId]);
 
   useEffect(() => {
@@ -35,15 +43,20 @@ export function AppShell({
     const onChanged = () => refreshBadge();
     window.addEventListener("messaging:changed", onChanged);
     const realtime = connectProfileRealtime(identityId, (event: RealtimeEvent) => {
-      if (event.type === "ready" || event.type === "typing") return;
+      if (event.type === "typing") return;
       refreshBadge();
       window.dispatchEvent(new CustomEvent("messaging:realtime", { detail: event }));
-      if (event.type === "message.created" && document.hidden && Notification.permission === "granted") {
+      if (event.type === "message.created" && document.hidden && typeof Notification !== "undefined" && Notification.permission === "granted") {
         const payload = event.payload as { sender?: { displayName?: string }; body?: string };
         new Notification(payload.sender?.displayName ?? "New message", { body: payload.body ?? "Sent an attachment" });
       }
     });
-    return () => { window.removeEventListener("messaging:changed", onChanged); realtime.close(); };
+    return () => {
+      clearTimeout(badgeTimer.current);
+      badgeVersion.current++;
+      window.removeEventListener("messaging:changed", onChanged);
+      realtime.close();
+    };
   }, [identityId, refreshBadge]);
 
   return (
@@ -64,7 +77,7 @@ export function AppShell({
                 }`
               }
             >
-              <span className="flex items-center justify-between gap-2"><span>{item.label}</span><NavBadge count={item.label === "Messaging" ? badges.unread : item.label === "Network" ? badges.requests : 0} /></span>
+              <span className="flex items-center justify-between gap-2"><span>{item.label}</span><NavBadge count={item.to.endsWith("/messages") ? badges.unread : item.to.endsWith("/network") ? badges.requests : 0} /></span>
             </NavLink>
           ))}
         </nav>

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import { useSearchParams, useParams } from "react-router-dom";
 import { api } from "../lib/api";
-import { connectProfileRealtime } from "../lib/realtime";
-import type { ChatMessage, ConnectionRequest, ConversationSummary, SocialProfile } from "../lib/types";
+import { ProfileAvatar as Avatar } from "../ui/ProfileAvatar";
+import { useProfileRealtime } from "../lib/useProfileRealtime";
+import { useDebouncedValue } from "../lib/useDebouncedValue";
+import type { ChatMessage, ConnectionRequest, ConversationSummary } from "../lib/types";
 import { Banner, Button, EmptyState, Input, Select } from "../ui/primitives";
 
 const ATTACHMENT_ACCEPT = ".csv,.xls,.xlsx,.doc,.docx,.ppt,.pptx,.pdf,.txt,.gif,.jpg,.jpeg,.png,.bmp,.mp4,.mov";
@@ -16,6 +18,9 @@ export function MessagingPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [bucket, setBucket] = useState("inbox");
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(query);
+  const [inboxCursor, setInboxCursor] = useState<string | null>(null);
+  const sidebarRequest = useRef(0);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [requests, setRequests] = useState<ConnectionRequest[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -35,32 +40,48 @@ export function MessagingPage() {
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">(
     typeof Notification === "undefined" ? "unsupported" : Notification.permission,
   );
-  const typingSocket = useRef<ReturnType<typeof connectProfileRealtime> | null>(null);
   const typingTimer = useRef<number | null>(null);
 
-  const loadSidebar = useCallback(async () => {
+  const loadSidebar = useCallback(async (cursor?: string) => {
+    const requestId = ++sidebarRequest.current;
     try {
       if (bucket === "requests") {
-        setRequests((await api.connections(identityId, "incoming")).items);
+        const result = await api.connections(identityId, "incoming");
+        if (requestId === sidebarRequest.current) setRequests(result.items);
       } else {
-        setConversations((await api.conversations(identityId, { bucket: bucket === "inbox" ? undefined : bucket, q: query })).items);
+        const result = await api.conversations(identityId, { bucket: bucket === "inbox" ? undefined : bucket, q: debouncedQuery, cursor });
+        if (requestId !== sidebarRequest.current) return;
+        setConversations((current) => cursor ? [...current, ...result.items.filter((item) => !current.some((old) => old.id === item.id))] : result.items);
+        setInboxCursor(result.nextCursor);
       }
     } catch (err) { setError(err instanceof Error ? err.message : "Could not load messages"); }
-  }, [bucket, identityId, query]);
+  }, [bucket, identityId, debouncedQuery]);
 
-  const loadConversation = useCallback(async (conversationId: string) => {
+  const conversationRequest = useRef(0);
+  const loadedConversation = useRef<string | null>(null);
+  const loadConversation = useCallback(async (conversationId: string, refresh = false) => {
+    const requestId = ++conversationRequest.current;
     try {
       const [conversation, result] = await Promise.all([api.conversation(identityId, conversationId), api.messages(identityId, conversationId)]);
+      if (requestId !== conversationRequest.current) return;
       setSelected(conversation);
       setMessages(result.items);
-      setBody(conversation.draftText ?? "");
-      await api.updateConversationState(identityId, conversationId, { read: true });
-      window.dispatchEvent(new CustomEvent("messaging:changed"));
+      if (!refresh || loadedConversation.current !== conversationId) setBody(conversation.draftText ?? "");
+      loadedConversation.current = conversationId;
+      const lastMessage = result.items.at(-1);
+      const lastReadAt = conversation.participants.find((member) => member.id === identityId)?.lastReadAt;
+      if (lastMessage && (!lastReadAt || lastReadAt < lastMessage.createdAt)) {
+        await api.updateConversationState(identityId, conversationId, { read: true, readThrough: lastMessage.createdAt });
+        window.dispatchEvent(new CustomEvent("messaging:changed"));
+      }
     } catch (err) { setError(err instanceof Error ? err.message : "Could not open conversation"); }
   }, [identityId]);
 
   useEffect(() => { void loadSidebar(); }, [loadSidebar]);
-  useEffect(() => { if (selectedId) void loadConversation(selectedId); }, [loadConversation, selectedId]);
+  useEffect(() => {
+    if (selectedId) void loadConversation(selectedId);
+    return () => { conversationRequest.current++; };
+  }, [loadConversation, selectedId]);
   useEffect(() => {
     const target = searchParams.get("with");
     if (!target) return;
@@ -70,19 +91,37 @@ export function MessagingPage() {
       void loadSidebar();
     }).catch((err) => setError(err instanceof Error ? err.message : "Could not start conversation"));
   }, [identityId, loadSidebar, searchParams, setSearchParams]);
-  useEffect(() => {
-    const socket = connectProfileRealtime(identityId, (event) => {
-      if (event.type === "typing" && event.conversationId === selectedId) {
+  const typingSocket = useProfileRealtime(identityId, (event) => {
+      if (event.type === "typing") {
+        if (event.conversationId !== selectedId) return;
         const payload = event.payload as { identityId: string; displayName: string; active: boolean };
         setTyping((current) => payload.active ? [...new Set([...current, payload.displayName])] : current.filter((name) => name !== payload.displayName));
-      } else if (event.type !== "ready") {
+      } else if (event.type === "message.created") {
+        const message = event.payload as ChatMessage;
         void loadSidebar();
-        if (event.conversationId === selectedId) void loadConversation(selectedId);
+        if (event.conversationId !== selectedId) return;
+        setMessages((current) => {
+          const exists = current.some((item) => item.id === message.id || item.clientMessageId === message.clientMessageId && item.sender.id === message.sender.id);
+          return exists ? current.map((item) => item.id === message.id || item.clientMessageId === message.clientMessageId && item.sender.id === message.sender.id ? message : item) : [...current, message];
+        });
+        if (message.sender.id !== identityId) {
+          void api.updateConversationState(identityId, message.conversationId, { read: true, readThrough: message.createdAt }).catch(() => undefined);
+        }
+      } else if (event.type === "conversation.read") {
+        const payload = event.payload as { identityId: string; readAt: string };
+        setSelected((current) => current && current.id === event.conversationId ? {
+          ...current, participants: current.participants.map((member) => member.id === payload.identityId ? { ...member, lastReadAt: payload.readAt } : member),
+        } : current);
+        if (payload.identityId === identityId) setConversations((current) => current.map((item) => item.id === event.conversationId ? { ...item, unreadCount: 0 } : item));
+      } else {
+        void loadSidebar();
+        if (selectedId && (event.type === "ready" || event.conversationId === selectedId)) void loadConversation(selectedId, true);
       }
-    });
-    typingSocket.current = socket;
-    return () => { socket.close(); typingSocket.current = null; };
-  }, [identityId, loadConversation, loadSidebar, selectedId]);
+  });
+  useEffect(() => () => {
+    if (typingTimer.current) window.clearTimeout(typingTimer.current);
+    if (selectedId) typingSocket.current?.sendTyping(selectedId, false);
+  }, [selectedId, typingSocket]);
 
   const ownProfile = selected?.participants.find((participant) => participant.id === identityId);
   const selectedOthers = selected?.participants.filter((participant) => participant.id !== identityId) ?? [];
@@ -186,6 +225,7 @@ export function MessagingPage() {
             {bucket === "requests" ? requests.map((item) => <RequestRow key={item.id} item={item} busy={busy} onAccept={async () => { await api.respondToConnection(identityId, item.id, "accept"); await loadSidebar(); }} onDecline={async () => { await api.respondToConnection(identityId, item.id, "decline"); await loadSidebar(); }} />) : conversations.map((conversation) => <button type="button" key={conversation.id} onClick={() => setSelectedId(conversation.id)} className={`w-full border-b border-rule p-4 text-left hover:bg-accent-soft/50 ${selectedId === conversation.id ? "bg-accent-soft" : ""}`}><div className="flex justify-between gap-2"><span className="truncate font-semibold">{conversation.title}</span><span className="shrink-0 text-[10px] text-muted">{shortTime(conversation.lastMessageAt)}</span></div><div className="mt-1 flex items-center justify-between gap-2"><span className="truncate text-xs text-muted">{conversation.latestMessage?.deletedAt ? "Message deleted" : conversation.latestMessage?.body ?? conversation.latestMessage?.attachments[0]?.fileName ?? "No messages yet"}</span>{conversation.unreadCount ? <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-white">{conversation.unreadCount}</span> : null}</div></button>)}
             {bucket === "requests" && !requests.length ? <EmptyState>No message requests.</EmptyState> : null}
             {bucket !== "requests" && !conversations.length ? <EmptyState>No conversations here.</EmptyState> : null}
+            {bucket !== "requests" && inboxCursor ? <Button type="button" variant="ghost" onClick={() => void loadSidebar(inboxCursor)}>Load more conversations</Button> : null}
           </div>
         </aside>
 
@@ -217,10 +257,6 @@ function MessageBubble({ message, own, identityId, onReply, onChanged }: { messa
 
 function RequestRow({ item, busy, onAccept, onDecline }: { item: ConnectionRequest; busy: boolean; onAccept: () => Promise<void>; onDecline: () => Promise<void> }) {
   return <div className="border-b border-rule p-4"><div className="flex gap-3"><Avatar profile={item.profile} /><div><div className="font-semibold">{item.profile.displayName}</div><div className="text-xs text-muted">{item.profile.handle}</div></div></div>{item.note ? <p className="mt-2 text-sm text-muted">{item.note}</p> : null}<div className="mt-3 flex gap-2"><Button type="button" disabled={busy} onClick={() => void onAccept()}>Accept</Button><Button type="button" variant="ghost" disabled={busy} onClick={() => void onDecline()}>Decline</Button></div></div>;
-}
-
-function Avatar({ profile, small = false }: { profile: Pick<SocialProfile, "avatarUrl" | "displayName">; small?: boolean }) {
-  return <div className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-accent-soft font-semibold text-accent ${small ? "h-8 w-8 text-xs" : "h-10 w-10"}`}>{profile.avatarUrl ? <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" /> : profile.displayName.slice(0, 1).toUpperCase()}</div>;
 }
 
 function shortTime(value: string | null) { return value ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value)) : ""; }

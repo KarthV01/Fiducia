@@ -13,6 +13,7 @@ import { HttpError } from "./http/errors.js";
 import { registerArtifactRoutes } from "./routes/artifacts.js";
 import { registerPublicationRoutes } from "./routes/publications.js";
 import { registerNetworkRoutes } from "./routes/network.js";
+import { ensureSocialIdentities } from "./services/networkService.js";
 import { registerMessagingRoutes } from "./routes/messaging.js";
 import { registerRealtimeRoutes } from "./routes/realtime.js";
 import { InMemoryRealtimePublisher, type RealtimePublisher } from "./services/realtimeService.js";
@@ -25,6 +26,7 @@ export type AppDependencies = {
 };
 
 export async function buildApp(deps: AppDependencies) {
+  await ensureSocialIdentities(deps.prisma);
   const app = Fastify({
     logger: deps.logger ?? true,
   });
