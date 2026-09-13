@@ -25,6 +25,7 @@ export function NetworkPage() {
   const [profiles, setProfiles] = useState<SocialProfile[]>([]);
   const [connections, setConnections] = useState<ConnectionRequest[]>([]);
   const [incoming, setIncoming] = useState<ConnectionRequest[]>([]);
+  const [incomingByProfileId, setIncomingByProfileId] = useState<Record<string, ConnectionRequest>>({});
   const [outgoing, setOutgoing] = useState<ConnectionRequest[]>([]);
   const [noteFor, setNoteFor] = useState<string | null>(null);
   const [note, setNote] = useState("");
@@ -37,10 +38,14 @@ export function NetworkPage() {
     setError(null);
     try {
       if (tab === "discover") {
-        const result = await api.searchProfiles(identityId, { q: debouncedQuery, relationship, profileType, cursor });
+        const [result, received] = await Promise.all([
+          api.searchProfiles(identityId, { q: debouncedQuery, relationship, profileType, cursor }),
+          api.connections(identityId, "incoming"),
+        ]);
         if (version !== requestVersion.current) return;
         setProfiles((current) => cursor ? [...current, ...result.items.filter((item) => !current.some((old) => old.id === item.id))] : result.items);
         setNextCursor(result.nextCursor);
+        setIncomingByProfileId(Object.fromEntries(received.items.map((item) => [item.profile.id, item])));
       } else if (tab === "connections") {
         const result = await api.connections(identityId, "connected");
         if (version === requestVersion.current) setConnections(result.items);
@@ -102,7 +107,7 @@ export function NetworkPage() {
           <Select value={relationship} onChange={(event) => setRelationship(event.target.value)}><option value="all">Any relationship</option><option value="none">Not connected</option><option value="connected">Connections</option><option value="incoming">Invited you</option><option value="outgoing">Request sent</option></Select>
           <Button type="submit">Search</Button>
         </form>
-        <ProfileGrid profiles={profiles} role={role} basePath={basePath} busy={busy} noteFor={noteFor} note={note} setNote={setNote} setNoteFor={setNoteFor} onConnect={(profile) => mutate(() => api.requestConnection(identityId, profile.id, note), `Connection request sent to ${profile.displayName}.`)} />
+        <ProfileGrid profiles={profiles} role={role} basePath={basePath} busy={busy} noteFor={noteFor} note={note} setNote={setNote} setNoteFor={setNoteFor} incomingByProfileId={incomingByProfileId} onConnect={(profile) => mutate(() => api.requestConnection(identityId, profile.id, note), `Connection request sent to ${profile.displayName}.`)} onAcceptIncoming={(item) => mutate(() => api.respondToConnection(identityId, item.id, "accept"), `You are now connected with ${item.profile.displayName}.`)} onDeclineIncoming={(item) => mutate(() => api.respondToConnection(identityId, item.id, "decline"), "Invitation declined.")} />
       </> : null}
       {tab === "discover" && nextCursor ? <Button type="button" variant="ghost" onClick={() => void load(nextCursor)}>Load more profiles</Button> : null}
 
@@ -118,7 +123,7 @@ export function NetworkPage() {
   );
 }
 
-function ProfileGrid({ profiles, role, basePath, busy, noteFor, note, setNote, setNoteFor, onConnect }: { profiles: SocialProfile[]; role: "sponsor" | "creator"; basePath: string; busy: boolean; noteFor: string | null; note: string; setNote: (value: string) => void; setNoteFor: (value: string | null) => void; onConnect: (profile: SocialProfile) => void }) {
+function ProfileGrid({ profiles, role, basePath, busy, noteFor, note, setNote, setNoteFor, incomingByProfileId, onConnect, onAcceptIncoming, onDeclineIncoming }: { profiles: SocialProfile[]; role: "sponsor" | "creator"; basePath: string; busy: boolean; noteFor: string | null; note: string; setNote: (value: string) => void; setNoteFor: (value: string | null) => void; incomingByProfileId: Record<string, ConnectionRequest>; onConnect: (profile: SocialProfile) => void; onAcceptIncoming: (item: ConnectionRequest) => void; onDeclineIncoming: (item: ConnectionRequest) => void }) {
   if (!profiles.length) return <EmptyState>No profiles match these filters.</EmptyState>;
   return <div className="grid gap-3 lg:grid-cols-2">{profiles.map((profile) => <article key={profile.id} className="rounded-[8px] border-2 border-ink/20 bg-surface p-4">
     <ProfileHeading profile={profile} />
@@ -126,7 +131,10 @@ function ProfileGrid({ profiles, role, basePath, busy, noteFor, note, setNote, s
       {profile.relationship === "none" ? <Button type="button" variant="secondary" disabled={busy} onClick={() => setNoteFor(noteFor === profile.id ? null : profile.id)}>Connect</Button> : null}
       {profile.relationship === "connected" ? <LinkButton to={`${basePath}/messages?with=${encodeURIComponent(profile.id)}`}>Message</LinkButton> : null}
       {profile.relationship === "connected" && role === "sponsor" && profile.profileType === "creator" ? <LinkButton to={`${basePath}/contracts/new?creatorProfileId=${profile.profileId}`} secondary>Draft contract</LinkButton> : null}
-      {profile.relationship === "incoming" ? <span className="text-xs font-medium text-accent">Invitation received</span> : null}
+      {profile.relationship === "incoming" && incomingByProfileId[profile.id] ? <>
+        <Button type="button" disabled={busy} onClick={() => onAcceptIncoming(incomingByProfileId[profile.id])}>Accept</Button>
+        <Button type="button" variant="ghost" disabled={busy} onClick={() => onDeclineIncoming(incomingByProfileId[profile.id])}>Decline</Button>
+      </> : null}
       {profile.relationship === "outgoing" ? <span className="text-xs font-medium text-muted">Request pending</span> : null}
     </div>
     {noteFor === profile.id ? <div className="mt-3 border-t border-rule pt-3"><textarea className="min-h-20 w-full rounded-[6px] border-2 border-ink/25 bg-surface px-3 py-2 text-sm outline-none focus:border-accent" maxLength={300} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Add a personal note (optional)" /><div className="mt-2 flex items-center justify-between"><span className="text-xs text-muted">{note.length}/300</span><Button type="button" disabled={busy} onClick={() => onConnect(profile)}>Send invitation</Button></div></div> : null}
