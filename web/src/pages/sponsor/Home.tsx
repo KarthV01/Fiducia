@@ -24,8 +24,8 @@ export function SponsorHomePage() {
   return (
     <div>
       <PageHeader
-        title="Home"
-        description="Escrowed sponsorships for this workspace."
+        title="Workspace overview"
+        description="Your partnerships, progress, and payments. All in one place."
         action={<ButtonLink to={`/sponsor/${sponsorId}/contracts/new`}>New contract</ButtonLink>}
       />
       <KpiRow

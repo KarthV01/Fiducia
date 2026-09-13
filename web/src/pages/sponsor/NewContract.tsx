@@ -166,7 +166,7 @@ export function NewContractPage() {
         </div>
       ) : null}
       <form className="space-y-6" onSubmit={onSubmit}>
-        <section className="rounded-[8px] border-2 border-ink/20 bg-surface p-4">
+        <section className="rounded-xl border border-rule bg-surface p-4">
           <h2 className="text-sm font-medium text-ink">
             Creator account
             <RequiredMark />
@@ -224,7 +224,7 @@ export function NewContractPage() {
         <Field label="Deliverable" required>
           <Textarea rows={4} value={deliverable} onChange={(event) => setDeliverable(event.target.value)} required />
         </Field>
-        <section className="space-y-4 rounded-[8px] border-2 border-ink/20 bg-surface p-4">
+        <section className="space-y-4 rounded-xl border border-rule bg-surface p-4">
           <h2 className="text-sm font-medium text-ink">Approval criteria</h2>
           <Field label="Promotional concept requirements" required><Textarea rows={3} value={promoRequirements} onChange={(event) => setPromoRequirements(event.target.value)} required /></Field>
           <Field label="Private final-cut requirements" required><Textarea rows={3} value={finalCutRequirements} onChange={(event) => setFinalCutRequirements(event.target.value)} required /></Field>
@@ -246,7 +246,7 @@ export function NewContractPage() {
           </Field>
         </div>
 
-        <section className="rounded-[8px] border-2 border-ink/20 bg-surface p-4">
+        <section className="rounded-xl border border-rule bg-surface p-4">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-medium text-ink">View milestones</h2>
             <Button
@@ -293,7 +293,7 @@ export function NewContractPage() {
           </div>
         </section>
 
-        <section className="rounded-[8px] border-2 border-ink/20 bg-surface p-4">
+        <section className="rounded-xl border border-rule bg-surface p-4">
           <h2 className="text-sm font-medium text-ink">Metered view earnings</h2>
           <p className="mt-1 text-sm text-muted">Optional capped payment per 1,000 verified views above a starting point.</p>
           <div className="mt-3 grid gap-3 md:grid-cols-3">
@@ -303,7 +303,7 @@ export function NewContractPage() {
           </div>
         </section>
 
-        <section className="rounded-[8px] border-2 border-ink/20 bg-surface p-4">
+        <section className="rounded-xl border border-rule bg-surface p-4">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-medium text-ink">Other metric bonuses</h2>
             <Button
@@ -381,7 +381,7 @@ export function NewContractPage() {
           </div>
         </section>
 
-        <div className="flex items-center justify-between rounded-[8px] border-2 border-ink/20 bg-surface px-4 py-3 text-sm">
+        <div className="flex items-center justify-between rounded-xl border border-rule bg-surface px-4 py-3 text-sm">
           <div>
             <div className="text-muted">Defined payouts / cap</div>
             <div className="tabular-nums text-ink">

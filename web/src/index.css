@@ -2,14 +2,14 @@
 
 @theme {
   --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
-  --color-canvas: #d8d3c6;
-  --color-surface: #fffdf6;
-  --color-ink: #12100c;
-  --color-muted: #3f3a30;
-  --color-rule: #8f8774;
-  --color-accent: #0b2f8a;
-  --color-accent-hover: #08246a;
-  --color-accent-soft: #d7e0f4;
+  --color-canvas: #101217;
+  --color-surface: #191c24;
+  --color-ink: #edf0f7;
+  --color-muted: #a0a8bb;
+  --color-rule: #2b303d;
+  --color-accent: #6155d9;
+  --color-accent-hover: #7265ec;
+  --color-accent-soft: #28263f;
   --radius-sm: 6px;
   --radius-md: 8px;
 }
@@ -21,6 +21,7 @@ body,
 }
 
 body {
+  color-scheme: dark;
   margin: 0;
   background: var(--color-canvas);
   color: var(--color-ink);
@@ -53,5 +54,16 @@ button:disabled {
 }
 
 ::selection {
-  background: #c5d2f3;
+  background: #514890;
+}
+
+:focus-visible {
+  outline: 2px solid #b4aaff;
+  outline-offset: 3px;
+}
+
+* { scrollbar-width: thin; scrollbar-color: #414758 transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
 }

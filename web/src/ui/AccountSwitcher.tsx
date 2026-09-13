@@ -56,14 +56,15 @@ export function AccountSwitcher({ currentSession }: { currentSession: Session })
     <div ref={wrapperRef} className="relative">
       <button
         type="button"
-        className="inline-flex h-9 items-center gap-2 rounded-[6px] border-2 border-ink/25 bg-surface px-3 text-sm font-medium text-ink transition-colors hover:border-ink/40 hover:bg-accent-soft"
+        className="inline-flex h-10 items-center gap-2 rounded-full border border-rule bg-surface px-4 text-sm font-medium text-ink transition-colors hover:border-muted/50 hover:bg-accent-soft"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
       >
         <span className="max-w-[150px] truncate">{current?.label ?? "Switch account"}</span>
+        <span aria-hidden="true" className="text-muted">⌄</span>
       </button>
       {open ? (
-        <div className="absolute right-0 top-11 z-50 w-[320px] rounded-[8px] border-2 border-ink/20 bg-surface p-3 shadow-[0_12px_30px_rgba(18,16,12,0.18)]">
+        <div className="absolute right-0 top-12 z-50 w-[min(320px,calc(100vw-2rem))] rounded-xl border border-rule bg-surface p-3 shadow-[0_18px_60px_#0008]">
           {data?.user ? (
             <div className="mb-3 border-b border-rule px-2 pb-3 text-sm">
               <div className="font-medium text-ink">{data.user.name ?? data.user.email}</div>

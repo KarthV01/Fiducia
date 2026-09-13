@@ -48,7 +48,7 @@ export function ContractPanel({
       />
 
       {(canFund || canRecord) && (
-        <section className="rounded-[8px] border-2 border-ink/20 bg-surface p-5">
+        <section className="rounded-xl border border-rule bg-surface p-5">
           <h2 className="text-sm font-medium text-ink">Actions</h2>
           <p className="mt-1 text-sm text-muted">
             {variant === "sponsor"
@@ -72,10 +72,10 @@ export function ContractPanel({
         </section>
       )}
 
-      <details className="rounded-[8px] border-2 border-ink/20 bg-surface">
+      <details className="rounded-xl border border-rule bg-surface">
         <summary className="cursor-pointer px-5 py-4 text-sm font-semibold text-ink">Contract details, payouts, performance, and on-chain record</summary>
         <div className="space-y-6 border-t border-rule p-5">
-      <section className="grid gap-px overflow-hidden rounded-[8px] border-2 border-ink/20 bg-rule md:grid-cols-2">
+      <section className="grid gap-px overflow-hidden rounded-xl border border-rule bg-rule md:grid-cols-2">
         <InfoCell label="Status">
           <StatusPill status={contract.status} />
         </InfoCell>
@@ -88,12 +88,12 @@ export function ContractPanel({
         <InfoCell label="Creator">{partyName(contract.creatorProfile)}</InfoCell>
       </section>
 
-      <section className="rounded-[8px] border-2 border-ink/20 bg-surface p-5">
+      <section className="rounded-xl border border-rule bg-surface p-5">
         <h2 className="text-sm font-medium text-ink">Deliverable</h2>
         <p className="mt-2 whitespace-pre-wrap text-sm text-muted">{contract.deliverableDescription}</p>
       </section>
 
-      <section className="overflow-hidden rounded-[8px] border-2 border-ink/20 bg-surface">
+      <section className="overflow-hidden rounded-xl border border-rule bg-surface">
         <div className="border-b border-rule px-4 py-3 text-sm font-medium text-ink">Payout schedule</div>
         <table className="w-full text-left text-sm">
           <thead>
@@ -131,7 +131,7 @@ export function ContractPanel({
         </table>
       </section>
 
-      <section className="overflow-hidden rounded-[8px] border-2 border-ink/20 bg-surface">
+      <section className="overflow-hidden rounded-xl border border-rule bg-surface">
         <div className="border-b border-rule px-4 py-3 text-sm font-medium text-ink">Performance observations</div>
         {contract.observations.length === 0 ? (
           <p className="px-4 py-6 text-sm text-muted">No observations recorded yet.</p>
@@ -159,7 +159,7 @@ export function ContractPanel({
         )}
       </section>
 
-      <section className="rounded-[8px] border-2 border-ink/20 bg-surface p-5">
+      <section className="rounded-xl border border-rule bg-surface p-5">
         <h2 className="text-sm font-medium text-ink">On-chain</h2>
         {contract.blockchainRecord ? (
           <dl className="mt-3 grid gap-3 text-sm md:grid-cols-2">
@@ -211,7 +211,7 @@ function DeliverableWorkflow({
   const mayReview = variant === "sponsor" && contract.workflow.sponsorAction === "review" && latest;
 
   return (
-    <section className="rounded-[8px] border-2 border-ink/20 bg-surface p-5">
+    <section className="rounded-xl border border-rule bg-surface p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-medium text-ink">Next step</h2>
@@ -232,7 +232,7 @@ function DeliverableWorkflow({
           {latest.proofUrl ? <a className="mt-2 block break-all text-accent underline" href={latest.proofUrl} target="_blank" rel="noreferrer">{latest.proofUrl}</a> : null}
           {latest.notes ? <p className="mt-2 whitespace-pre-wrap text-muted">{latest.notes}</p> : null}
           {latest.evidence.map((item) => <a key={item.id} className="mt-2 block break-all text-accent underline" href={item.url} target="_blank" rel="noreferrer">{item.label ?? item.url}</a>)}
-          {latest.isLate ? <p className="mt-2 text-[#8a3a2a]">Submitted after the contract deadline.</p> : null}
+          {latest.isLate ? <p className="mt-2 text-[#f49ba5]">Submitted after the contract deadline.</p> : null}
           {latest.reviews.map((review) => review.comment ? <p key={review.id} className="mt-3 border-l-2 border-ink/25 pl-3 text-muted"><strong>{review.decision.replaceAll("_", " ")}:</strong> {review.comment}</p> : null)}
           {latest.approvedTxHash ? <div className="mt-3"><CopyText value={latest.approvedTxHash} label={truncateHash(latest.approvedTxHash)} /></div> : null}
         </div>
@@ -373,11 +373,11 @@ function UploadDropzone({
     <div>
       <div className="mb-1.5 text-sm text-ink">
         {isFinalCut ? "Private final-cut video" : "Promotional concept file"}
-        <span className="ml-0.5 text-[#c0392b]" aria-hidden="true">*</span>
+        <span className="ml-0.5 text-[#f49ba5]" aria-hidden="true">*</span>
       </div>
       <input ref={inputRef} className="sr-only" type="file" accept={accept} onChange={handleInput} />
       <div
-        className={`rounded-[8px] border-2 border-dashed px-5 py-7 text-center transition-colors ${dragging ? "border-accent bg-accent-soft" : error ? "border-[#c0392b] bg-[#f4d7cf]/35" : "border-ink/30 bg-canvas/45 hover:border-accent hover:bg-accent-soft/45"}`}
+        className={`rounded-[8px] border-2 border-dashed px-5 py-7 text-center transition-colors ${dragging ? "border-accent bg-accent-soft" : error ? "border-[#c0392b] bg-[#332128]" : "border-ink/30 bg-canvas/45 hover:border-accent hover:bg-accent-soft/45"}`}
         onDragEnter={(event) => { event.preventDefault(); setDragging(true); }}
         onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setDragging(true); }}
         onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false); }}
@@ -403,7 +403,7 @@ function UploadDropzone({
           {isFinalCut ? "MP4, MOV, or WebM video only" : "Video, image, PDF, TXT, DOC, or DOCX"} · 5 GB max
         </p>
       </div>
-      {error ? <p className="mt-1.5 text-xs text-[#c0392b]" role="alert">{error}</p> : null}
+      {error ? <p className="mt-1.5 text-xs text-[#f49ba5]" role="alert">{error}</p> : null}
     </div>
   );
 }

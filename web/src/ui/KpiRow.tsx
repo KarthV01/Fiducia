@@ -8,14 +8,14 @@ export type Kpi = {
 
 export function KpiRow({ items }: { items: Kpi[] }) {
   return (
-    <div className="grid overflow-hidden rounded-[8px] border-2 border-ink/20 bg-surface md:grid-cols-4">
-      {items.map((item, index) => (
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {items.map((item) => (
         <div
           key={item.label}
-          className={`px-5 py-4 ${index === items.length - 1 ? "" : "border-b border-rule md:border-b-0 md:border-r"}`}
+          className="rounded-xl border border-rule bg-surface px-5 py-5"
         >
           <div className="text-xs text-muted">{item.label}</div>
-          <div className="mt-1 text-[20px] font-medium tracking-[-0.02em] text-ink tabular-nums">
+          <div className="mt-3 text-[28px] font-medium tracking-[-0.04em] text-ink tabular-nums">
             {item.money ? formatUsdc(item.value) : item.value}
           </div>
         </div>

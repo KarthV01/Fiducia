@@ -70,7 +70,7 @@ function PayoutTable({ rows, emptyLabel }: { rows: PayoutRow[]; emptyLabel: stri
   }
 
   return (
-    <div className="overflow-hidden rounded-[8px] border-2 border-ink/20 bg-surface">
+    <div className="overflow-hidden rounded-xl border border-rule bg-surface">
       <table className="w-full text-left text-sm">
         <thead>
           <tr className="border-b border-rule text-[11px] uppercase tracking-[0.06em] text-muted">

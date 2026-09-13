@@ -8,14 +8,14 @@ export function Button({
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "ghost" }) {
   const styles = {
-    primary: "bg-accent text-white hover:bg-accent-hover disabled:bg-[#7b8db8]",
-    secondary: "border-2 border-ink/30 bg-surface text-ink hover:bg-accent-soft disabled:text-muted",
-    ghost: "border-2 border-transparent bg-transparent text-ink hover:border-ink/25 hover:bg-accent-soft disabled:text-muted",
+    primary: "border border-white/10 bg-accent text-white shadow-sm hover:bg-accent-hover disabled:opacity-40",
+    secondary: "border border-rule bg-surface text-ink hover:border-muted/50 hover:bg-accent-soft disabled:opacity-40",
+    ghost: "border border-transparent bg-transparent text-muted hover:bg-accent-soft hover:text-ink disabled:opacity-40",
   }[variant];
 
   return (
     <button
-      className={`inline-flex h-9 items-center justify-center rounded-[6px] px-3.5 text-sm font-medium transition-colors disabled:cursor-not-allowed ${styles} ${className}`}
+      className={`inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg px-3.5 text-sm font-medium transition-colors disabled:cursor-not-allowed ${styles} ${className}`}
       {...props}
     />
   );
@@ -33,8 +33,8 @@ export function ButtonLink({
   children: ReactNode;
 }) {
   const styles = {
-    primary: "bg-accent text-white hover:bg-accent-hover",
-    secondary: "border-2 border-ink/30 bg-surface text-ink hover:bg-accent-soft",
+    primary: "border border-white/10 bg-accent text-white shadow-sm hover:bg-accent-hover",
+    secondary: "border border-rule bg-surface text-ink hover:border-muted/50 hover:bg-accent-soft",
   }[variant];
 
   return (
@@ -50,7 +50,7 @@ export function ButtonLink({
 export function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
-      className={`h-9 w-full rounded-[6px] border-2 border-ink/25 bg-surface px-3 text-sm text-ink outline-none placeholder:text-muted focus:border-accent ${className}`}
+      className={`h-10 w-full rounded-lg border border-rule bg-canvas/50 px-3 text-sm text-ink outline-none placeholder:text-muted focus:border-[#a599ef] ${className}`}
       {...props}
     />
   );
@@ -59,7 +59,7 @@ export function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInpu
 export function Select({ className = "", ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
-      className={`h-9 w-full rounded-[6px] border-2 border-ink/25 bg-surface px-3 text-sm text-ink outline-none focus:border-accent ${className}`}
+      className={`h-10 w-full rounded-lg border border-rule bg-surface px-3 text-sm text-ink outline-none focus:border-[#a599ef] ${className}`}
       {...props}
     />
   );
@@ -68,7 +68,7 @@ export function Select({ className = "", ...props }: SelectHTMLAttributes<HTMLSe
 export function Textarea({ className = "", ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
-      className={`w-full rounded-[6px] border-2 border-ink/25 bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-accent ${className}`}
+      className={`w-full rounded-lg border border-rule bg-canvas/50 px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-[#a599ef] ${className}`}
       {...props}
     />
   );
@@ -151,7 +151,7 @@ export function Banner({
 }) {
   const styles =
     tone === "error"
-      ? "border-[#8a3a2a] bg-[#f4d7cf] text-ink"
+      ? "border-[#75404a] bg-[#332128] text-[#ffb9bf]"
       : "border-ink/25 bg-accent-soft text-ink";
 
   return <div className={`rounded-[8px] border px-4 py-3 text-sm ${styles}`}>{children}</div>;
@@ -167,9 +167,9 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-6 flex items-start justify-between gap-6">
+    <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h1 className="text-[22px] font-medium tracking-[-0.02em] text-ink">{title}</h1>
+        <h1 className="text-[28px] font-semibold tracking-[-0.04em] text-ink">{title}</h1>
         {description ? <p className="mt-1 text-sm text-muted">{description}</p> : null}
       </div>
       {action}
@@ -179,7 +179,7 @@ export function PageHeader({
 
 export function StatusPill({ status }: { status: string }) {
   return (
-    <span className="inline-flex rounded-[4px] border border-ink/30 bg-canvas px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-ink">
+    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.05em] ${/active|completed|accepted|approved/.test(status) ? "border-[#35574d] bg-[#1c322c] text-[#9edbc3]" : /pending|review|invited/.test(status) ? "border-[#635134] bg-[#322c21] text-[#e9c991]" : "border-rule bg-canvas text-muted"}`}>
       {status.replaceAll("_", " ")}
     </span>
   );
@@ -205,5 +205,5 @@ export function CopyText({ value, label }: { value: string; label?: string }) {
 }
 
 export function EmptyState({ children }: { children: ReactNode }) {
-  return <p className="py-10 text-sm font-medium text-ink">{children}</p>;
+  return <p className="rounded-xl border border-dashed border-rule px-6 py-12 text-center text-sm text-muted">{children}</p>;
 }

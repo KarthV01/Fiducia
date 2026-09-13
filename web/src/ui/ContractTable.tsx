@@ -24,8 +24,8 @@ export function ContractTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-[8px] border-2 border-ink/20 bg-surface">
-      <table className="w-full text-left text-sm">
+    <div className="overflow-x-auto rounded-xl border border-rule bg-surface">
+      <table className="w-full min-w-[640px] text-left text-sm">
         <thead>
           <tr className="border-b border-rule text-[11px] uppercase tracking-[0.06em] text-muted">
             <th className="px-4 py-2.5 font-medium">Title</th>
@@ -42,7 +42,7 @@ export function ContractTable({
             const action = counterparty === "creator" ? contract.workflow.sponsorAction : contract.workflow.creatorAction;
             return (
             <Fragment key={contract.id}>
-            <tr className="cursor-pointer border-b border-rule" onClick={() => setExpandedId(expanded ? null : contract.id)}>
+            <tr className="cursor-pointer border-b border-rule transition-colors last:border-0 hover:bg-white/[0.025]" onClick={() => setExpandedId(expanded ? null : contract.id)}>
               <td className="px-4 py-3">
                 <button type="button" className="inline-flex items-center gap-2 rounded-[6px] border-2 border-transparent px-2 py-1 font-semibold text-ink transition-colors hover:border-ink/25 hover:bg-accent-soft">
                   {contract.title ?? "Untitled contract"}

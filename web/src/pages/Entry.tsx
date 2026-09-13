@@ -24,17 +24,18 @@ export function EntryPage() {
   const hasProfiles = Boolean((profiles?.sponsors.length ?? 0) + (profiles?.creators.length ?? 0));
 
   return (
-    <div className="min-h-screen bg-canvas px-6 py-10 text-center">
+    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,#26223e_0%,#101217_60%)] px-6 py-16 text-center">
       <main className="mx-auto w-full max-w-[860px]">
         <div className="mb-7">
-          <div className="text-[15px] font-semibold tracking-[-0.02em] text-ink">Payouts</div>
-          <h1 className="mt-6 text-[28px] font-medium tracking-[-0.02em] text-ink">
-            {auth?.user ? "Choose an account" : "Sign in to your accounts"}
+          <div className="text-xl font-semibold tracking-[-0.04em] text-ink">payouts<span className="text-[#b4aaff]">.</span></div>
+          <p className="mt-12 text-[10px] uppercase tracking-[0.2em] text-[#b4aaff]">A better way to work together</p>
+          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.045em] text-ink sm:text-5xl">
+            {auth?.user ? "Choose your workspace." : "Good work. Great partnerships."}
           </h1>
           <p className="mx-auto mt-2 max-w-[560px] text-sm text-muted">
             {auth?.user
               ? "Profiles are tied to your Google email. Create sponsor and creator accounts, then switch between them."
-              : "Use Google sign-in to access the sponsor and creator profiles attached to your email."}
+              : "Connect with creators and sponsors, keep conversations close, and manage every collaboration in one focused workspace."}
           </p>
         </div>
 
@@ -112,7 +113,7 @@ function SponsorProfileForm({ onCreated }: { onCreated: () => void }) {
   }
 
   return (
-    <form className="rounded-[8px] border-2 border-ink/20 bg-surface p-5" onSubmit={submit}>
+    <form className="rounded-xl border border-rule bg-surface p-5" onSubmit={submit}>
       <h2 className="text-sm font-semibold text-ink">Create sponsor account</h2>
       <div className="mt-4 space-y-3">
         {error ? <Banner>{error}</Banner> : null}
@@ -161,7 +162,7 @@ function CreatorProfileForm({ onCreated }: { onCreated: () => void }) {
   }
 
   return (
-    <form className="rounded-[8px] border-2 border-ink/20 bg-surface p-5" onSubmit={submit}>
+    <form className="rounded-xl border border-rule bg-surface p-5" onSubmit={submit}>
       <h2 className="text-sm font-semibold text-ink">Create creator account</h2>
       <div className="mt-4 space-y-3">
         {error ? <Banner>{error}</Banner> : null}

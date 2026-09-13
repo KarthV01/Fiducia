@@ -44,7 +44,7 @@ export function CreatorHomePage() {
 
   return (
     <div>
-      <PageHeader title="Home" description="Current contracts, deadlines, and payouts for this creator wallet." />
+      <PageHeader title="Workspace overview" description="Keep your collaborations moving. Track deadlines, contracts, and earnings." />
       {actionError ? (
         <div className="mb-4">
           <Banner>{actionError}</Banner>
@@ -63,7 +63,7 @@ export function CreatorHomePage() {
           <h2 className="mb-3 text-sm font-medium text-ink">Pending invitations</h2>
           <div className="grid gap-3">
             {data.pendingInvites.map((invite) => (
-              <div key={invite.id} className="rounded-[8px] border-2 border-ink/20 bg-surface p-4">
+              <div key={invite.id} className="rounded-xl border border-rule bg-surface p-4">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <div className="text-sm font-semibold text-ink">
