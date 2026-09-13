@@ -6,6 +6,7 @@ import { api } from "../lib/api";
 import { connectProfileRealtime } from "../lib/realtime";
 import type { RealtimeEvent } from "../lib/types";
 import { Icon } from "./Icon";
+import { MessagingDock } from "./MessagingDock";
 
 export type NavItem = {
   to: string;
@@ -26,6 +27,7 @@ export function AppShell({
   children: ReactNode;
 }) {
   const identityId = `${currentSession.role}:${currentSession.id}`;
+  const basePath = `/${currentSession.role}/${currentSession.id}`;
   const [badges, setBadges] = useState({ unread: 0, requests: 0 });
   const badgeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const badgeVersion = useRef(0);
@@ -61,7 +63,17 @@ export function AppShell({
   }, [identityId, refreshBadge]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-canvas md:flex-row">
+    <div className="flex min-h-screen flex-col bg-canvas md:flex-row" onClickCapture={(event) => {
+      // Keep real profile links usable in new tabs; normal clicks open quick chat.
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const anchor = event.target instanceof Element ? event.target.closest("a") : null;
+      if (!anchor || anchor.target === "_blank") return;
+      const url = new URL(anchor.href, window.location.origin);
+      const recipientId = url.searchParams.get("with");
+      if (url.origin !== window.location.origin || url.pathname !== `${basePath}/messages` || !recipientId) return;
+      event.preventDefault();
+      window.dispatchEvent(new CustomEvent("messaging:open", { detail: { identityId, recipientId } }));
+    }}>
       <aside className="flex shrink-0 flex-col border-b border-rule bg-[#14161d] md:sticky md:top-0 md:h-screen md:w-52 md:border-r md:border-b-0 xl:w-60">
         <div className="flex h-20 items-center gap-3 px-6">
           <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-accent text-lg font-semibold text-white">p<span className="text-[#c1b9ff]">.</span></span>
@@ -96,6 +108,7 @@ export function AppShell({
         </header>
         <main className="mx-auto w-full max-w-[1600px] flex-1 px-5 pt-8 pb-24 md:px-8 xl:px-10">{children}</main>
       </div>
+      <MessagingDock key={identityId} identityId={identityId} basePath={basePath} unread={badges.unread} />
     </div>
   );
 }

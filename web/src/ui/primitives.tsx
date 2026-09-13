@@ -74,9 +74,9 @@ export function Textarea({ className = "", ...props }: TextareaHTMLAttributes<HT
   );
 }
 
-const requiredMarkClass = "ml-0.5 text-[#c0392b]";
+const requiredMarkClass = "ml-0.5 text-[#f49ba5]";
 const requiredControlClass =
-  "[&_input]:border-[#c0392b] [&_input]:focus:border-[#c0392b] [&_textarea]:border-[#c0392b] [&_textarea]:focus:border-[#c0392b] [&_select]:border-[#c0392b] [&_select]:focus:border-[#c0392b]";
+  "[&_input]:border-[#f49ba5] [&_input]:focus:border-[#f49ba5] [&_textarea]:border-[#f49ba5] [&_textarea]:focus:border-[#f49ba5] [&_select]:border-[#f49ba5] [&_select]:focus:border-[#f49ba5]";
 
 export function RequiredMark() {
   return (
@@ -136,7 +136,7 @@ export function Field({
         {required ? <RequiredMark /> : null}
       </span>
       {children}
-      {showRequiredError ? <span className="mt-1 block text-xs text-[#c0392b]">Required</span> : null}
+      {showRequiredError ? <span className="mt-1 block text-xs text-[#f49ba5]">Required</span> : null}
       {hint && !showRequiredError ? <span className="mt-1 block text-xs text-muted">{hint}</span> : null}
     </label>
   );

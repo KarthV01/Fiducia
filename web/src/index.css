@@ -10,6 +10,7 @@
   --color-accent: #6155d9;
   --color-accent-hover: #7265ec;
   --color-accent-soft: #28263f;
+  --color-link: #b4aaff;
   --radius-sm: 6px;
   --radius-md: 8px;
 }
@@ -63,6 +64,35 @@ button:disabled {
 }
 
 * { scrollbar-width: thin; scrollbar-color: #414758 transparent; }
+
+.messaging-workspace { overflow: hidden; background: var(--color-surface); }
+.messaging-grid { display: grid; grid-template-columns: 280px minmax(0, 1fr); height: clamp(480px, calc(100dvh - 10rem), 960px); }
+.messaging-rail { display: flex; min-height: 0; flex-direction: column; border-right: 1px solid var(--color-rule); }
+.messaging-thread { display: flex; min-width: 0; min-height: 0; flex-direction: column; background: var(--color-canvas); }
+.messaging-details { display: none; min-width: 0; border-left: 1px solid var(--color-rule); padding: 24px 20px; }
+.thread-back { display: none; }
+.message-actions { opacity: 0; transition: opacity 120ms; }
+.group:hover .message-actions, .group:focus-within .message-actions { opacity: 1; }
+.messaging-compact .messaging-grid { display: flex; height: min(530px, calc(100dvh - 8rem)); }
+.messaging-compact .messaging-rail { width: 100%; border-right: 0; }
+.messaging-compact .messaging-thread, .messaging-compact .messaging-details { display: none; }
+.messaging-compact.has-thread .messaging-rail { display: none; }
+.messaging-compact.has-thread .messaging-thread { display: flex; width: 100%; }
+.messaging-compact .thread-back { display: block; }
+
+@media (min-width: 1440px) {
+  .messaging-grid { grid-template-columns: 300px minmax(0, 1fr) 240px; }
+  .messaging-details { display: block; }
+}
+@media (max-width: 900px) {
+  .messaging-grid { display: flex; }
+  .messaging-rail { width: 100%; border: 0; }
+  .messaging-thread { display: none; }
+  .has-thread .messaging-rail { display: none; }
+  .has-thread .messaging-thread { display: flex; width: 100%; }
+  .thread-back { display: block; }
+}
+@media (hover: none) { .message-actions { opacity: 1; } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }

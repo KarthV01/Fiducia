@@ -228,10 +228,10 @@ function DeliverableWorkflow({
       {latest ? (
         <div className="mt-5 rounded-[6px] border border-rule bg-canvas p-4 text-sm">
           <div className="flex items-center justify-between"><strong>Submission v{latest.version}</strong><StatusPill status={latest.status} /></div>
-          {latest.upload ? <a className="mt-2 block text-accent underline" href={`/api/contracts/${contract.id}/artifacts/${latest.id}/content`} target="_blank" rel="noreferrer">Preview {latest.upload.fileName}</a> : null}
-          {latest.proofUrl ? <a className="mt-2 block break-all text-accent underline" href={latest.proofUrl} target="_blank" rel="noreferrer">{latest.proofUrl}</a> : null}
+          {latest.upload ? <a className="mt-2 block text-link underline" href={`/api/contracts/${contract.id}/artifacts/${latest.id}/content`} target="_blank" rel="noreferrer">Preview {latest.upload.fileName}</a> : null}
+          {latest.proofUrl ? <a className="mt-2 block break-all text-link underline" href={latest.proofUrl} target="_blank" rel="noreferrer">{latest.proofUrl}</a> : null}
           {latest.notes ? <p className="mt-2 whitespace-pre-wrap text-muted">{latest.notes}</p> : null}
-          {latest.evidence.map((item) => <a key={item.id} className="mt-2 block break-all text-accent underline" href={item.url} target="_blank" rel="noreferrer">{item.label ?? item.url}</a>)}
+          {latest.evidence.map((item) => <a key={item.id} className="mt-2 block break-all text-link underline" href={item.url} target="_blank" rel="noreferrer">{item.label ?? item.url}</a>)}
           {latest.isLate ? <p className="mt-2 text-[#f49ba5]">Submitted after the contract deadline.</p> : null}
           {latest.reviews.map((review) => review.comment ? <p key={review.id} className="mt-3 border-l-2 border-ink/25 pl-3 text-muted"><strong>{review.decision.replaceAll("_", " ")}:</strong> {review.comment}</p> : null)}
           {latest.approvedTxHash ? <div className="mt-3"><CopyText value={latest.approvedTxHash} label={truncateHash(latest.approvedTxHash)} /></div> : null}
@@ -245,7 +245,7 @@ function DeliverableWorkflow({
             {contract.deliverableSubmissions.slice(1).map((submission) => (
               <div key={submission.id} className="rounded-[6px] border border-rule p-3">
                 <div className="flex justify-between"><strong>Version {submission.version}</strong><StatusPill status={submission.status} /></div>
-                {submission.upload ? <a className="mt-2 block text-accent underline" href={`/api/contracts/${contract.id}/artifacts/${submission.id}/content`} target="_blank" rel="noreferrer">{submission.upload.fileName}</a> : null}
+                {submission.upload ? <a className="mt-2 block text-link underline" href={`/api/contracts/${contract.id}/artifacts/${submission.id}/content`} target="_blank" rel="noreferrer">{submission.upload.fileName}</a> : null}
                 {submission.reviews.map((review) => review.comment ? <p key={review.id} className="mt-2 text-muted">{review.comment}</p> : null)}
               </div>
             ))}
@@ -377,20 +377,20 @@ function UploadDropzone({
       </div>
       <input ref={inputRef} className="sr-only" type="file" accept={accept} onChange={handleInput} />
       <div
-        className={`rounded-[8px] border-2 border-dashed px-5 py-7 text-center transition-colors ${dragging ? "border-accent bg-accent-soft" : error ? "border-[#c0392b] bg-[#332128]" : "border-ink/30 bg-canvas/45 hover:border-accent hover:bg-accent-soft/45"}`}
+        className={`rounded-[8px] border-2 border-dashed px-5 py-7 text-center transition-colors ${dragging ? "border-accent bg-accent-soft" : error ? "border-[#f49ba5] bg-[#332128]" : "border-ink/30 bg-canvas/45 hover:border-accent hover:bg-accent-soft/45"}`}
         onDragEnter={(event) => { event.preventDefault(); setDragging(true); }}
         onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setDragging(true); }}
         onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false); }}
         onDrop={handleDrop}
       >
-        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full border-2 border-ink/20 bg-surface text-accent" aria-hidden="true">
+        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full border-2 border-ink/20 bg-surface text-link" aria-hidden="true">
           <UploadIcon />
         </div>
         {file ? (
           <>
             <p className="mt-3 break-all text-sm font-semibold text-ink">{file.name}</p>
             <p className="mt-1 text-xs text-muted">{formatFileSize(file.size)}</p>
-            <button type="button" className="mt-3 text-sm font-medium text-accent underline underline-offset-2" onClick={() => inputRef.current?.click()}>Choose a different file</button>
+            <button type="button" className="mt-3 text-sm font-medium text-link underline underline-offset-2" onClick={() => inputRef.current?.click()}>Choose a different file</button>
           </>
         ) : (
           <>
