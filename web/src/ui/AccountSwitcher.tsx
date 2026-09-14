@@ -85,8 +85,8 @@ export function AccountSwitcher({ currentSession }: { currentSession: Session })
                 }}
               />
               <div className="mt-3 grid gap-2 border-t border-rule pt-3">
-                <Button type="button" variant="secondary" onClick={() => navigate("/")}>
-                  Add profile
+                <Button type="button" variant="secondary" onClick={() => { navigate("/accounts/new"); setOpen(false); }}>
+                  Create account
                 </Button>
                 <Button type="button" variant="ghost" onClick={() => (window.location.href = "/api/auth/google/start")}>
                   Switch Google account
@@ -118,7 +118,7 @@ export function AccountGroups({
   const creators = creatorTargets(profiles);
 
   return (
-    <div className={compact ? "space-y-3" : "mx-auto max-w-[560px] space-y-6"}>
+    <div className={compact ? "space-y-3" : "grid gap-6 sm:grid-cols-2"}>
       <AccountGroup
         title="Sponsor Accounts"
         targets={sponsors}
@@ -156,8 +156,8 @@ function AccountGroup({
   onSelect: (target: AccountTarget) => void;
 }) {
   return (
-    <section className={compact ? "" : "text-center"}>
-      <h2 className="mb-2 text-sm font-semibold text-ink">{title}:</h2>
+    <section className={compact ? "" : "text-left"}>
+      <h2 className="mb-2 text-sm font-semibold text-ink">{title}</h2>
       <div className={compact ? "space-y-1" : "space-y-2"}>
         {targets.length === 0 ? <p className="px-2 py-2 text-sm text-muted">No accounts yet.</p> : null}
         {targets.map((target) => {
@@ -166,12 +166,12 @@ function AccountGroup({
             <button
               key={`${target.role}-${target.id}`}
               type="button"
-              className={`w-full rounded-[6px] border-2 px-3 transition-colors ${
+              className={`w-full rounded-lg border px-4 transition-colors ${
                 compact ? "py-2" : "py-3"
               } ${active ? "border-accent bg-accent-soft" : "border-ink/15 bg-surface hover:border-ink/35 hover:bg-accent-soft"}`}
               onClick={() => onSelect(target)}
             >
-              <div className={`flex items-start gap-3 ${compact ? "justify-between text-left" : "justify-center text-center"}`}>
+              <div className={`flex items-start gap-3 ${compact ? "justify-between text-left" : "justify-between text-left"}`}>
                 <div className="min-w-0">
                   <div className="truncate text-sm font-semibold text-ink">{target.label}</div>
                   <div className="truncate text-xs text-muted">{target.meta}</div>

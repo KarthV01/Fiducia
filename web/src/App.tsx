@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { readSession } from "./lib/session";
 import { EntryPage } from "./pages/Entry";
+import { AccountAccess, AccountsPage, NewAccountPage, SignInPage } from "./pages/Accounts";
 import { CreatorLayout } from "./pages/CreatorLayout";
 import { SponsorLayout } from "./pages/SponsorLayout";
 import { CreatorContractDetailPage } from "./pages/creator/ContractDetail";
@@ -38,6 +39,10 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<EntryPage />} />
+      <Route path="/login" element={<SignInPage />} />
+      <Route element={<AccountAccess />}>
+      <Route path="/accounts" element={<AccountsPage />} />
+      <Route path="/accounts/new" element={<NewAccountPage />} />
       <Route path="/sponsor" element={<SponsorLegacyRedirect />} />
       <Route path="/sponsor/:sponsorId" element={<SponsorLayout />}>
         <Route index element={<SponsorHomePage />} />
@@ -57,6 +62,7 @@ export default function App() {
         <Route path="earnings" element={<CreatorEarningsPage />} />
         <Route path="network" element={<NetworkPage />} />
         <Route path="messages" element={<MessagingPage />} />
+      </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
