@@ -42,7 +42,7 @@ export function ContractTable({
             const action = counterparty === "creator" ? contract.workflow.sponsorAction : contract.workflow.creatorAction;
             return (
             <Fragment key={contract.id}>
-            <tr className="cursor-pointer border-b border-rule transition-colors last:border-0 hover:bg-white/[0.025]" onClick={() => setExpandedId(expanded ? null : contract.id)}>
+            <tr className="cursor-pointer border-b border-rule transition-colors last:border-0 hover:bg-ink/5" onClick={() => setExpandedId(expanded ? null : contract.id)}>
               <td className="px-4 py-3">
                 <button type="button" className="inline-flex items-center gap-2 rounded-[6px] border-2 border-transparent px-2 py-1 font-semibold text-ink transition-colors hover:border-ink/25 hover:bg-accent-soft">
                   {contract.title ?? "Untitled contract"}

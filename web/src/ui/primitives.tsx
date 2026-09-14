@@ -50,7 +50,7 @@ export function ButtonLink({
 export function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
-      className={`h-10 w-full rounded-lg border border-rule bg-canvas/50 px-3 text-sm text-ink outline-none placeholder:text-muted focus:border-[#a599ef] ${className}`}
+      className={`h-10 w-full rounded-lg border border-rule bg-canvas/50 px-3 text-sm text-ink outline-none placeholder:text-muted focus:border-link ${className}`}
       {...props}
     />
   );
@@ -59,7 +59,7 @@ export function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInpu
 export function Select({ className = "", ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
-      className={`h-10 w-full rounded-lg border border-rule bg-surface px-3 text-sm text-ink outline-none focus:border-[#a599ef] ${className}`}
+      className={`h-10 w-full rounded-lg border border-rule bg-surface px-3 text-sm text-ink outline-none focus:border-link ${className}`}
       {...props}
     />
   );
@@ -68,15 +68,15 @@ export function Select({ className = "", ...props }: SelectHTMLAttributes<HTMLSe
 export function Textarea({ className = "", ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
-      className={`w-full rounded-lg border border-rule bg-canvas/50 px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-[#a599ef] ${className}`}
+      className={`w-full rounded-lg border border-rule bg-canvas/50 px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-link ${className}`}
       {...props}
     />
   );
 }
 
-const requiredMarkClass = "ml-0.5 text-[#f49ba5]";
+const requiredMarkClass = "ml-0.5 text-danger";
 const requiredControlClass =
-  "[&_input]:border-[#f49ba5] [&_input]:focus:border-[#f49ba5] [&_textarea]:border-[#f49ba5] [&_textarea]:focus:border-[#f49ba5] [&_select]:border-[#f49ba5] [&_select]:focus:border-[#f49ba5]";
+  "[&_input]:border-danger [&_input]:focus:border-danger [&_textarea]:border-danger [&_textarea]:focus:border-danger [&_select]:border-danger [&_select]:focus:border-danger";
 
 export function RequiredMark() {
   return (
@@ -136,7 +136,7 @@ export function Field({
         {required ? <RequiredMark /> : null}
       </span>
       {children}
-      {showRequiredError ? <span className="mt-1 block text-xs text-[#f49ba5]">Required</span> : null}
+      {showRequiredError ? <span className="mt-1 block text-xs text-danger">Required</span> : null}
       {hint && !showRequiredError ? <span className="mt-1 block text-xs text-muted">{hint}</span> : null}
     </label>
   );
@@ -151,7 +151,7 @@ export function Banner({
 }) {
   const styles =
     tone === "error"
-      ? "border-[#75404a] bg-[#332128] text-[#ffb9bf]"
+      ? "border-danger-rule bg-danger-soft text-danger"
       : "border-ink/25 bg-accent-soft text-ink";
 
   return <div className={`rounded-[8px] border px-4 py-3 text-sm ${styles}`}>{children}</div>;
@@ -179,7 +179,7 @@ export function PageHeader({
 
 export function StatusPill({ status }: { status: string }) {
   return (
-    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.05em] ${/active|completed|accepted|approved/.test(status) ? "border-[#35574d] bg-[#1c322c] text-[#9edbc3]" : /pending|review|invited/.test(status) ? "border-[#635134] bg-[#322c21] text-[#e9c991]" : "border-rule bg-canvas text-muted"}`}>
+    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.05em] ${/active|completed|accepted|approved/.test(status) ? "border-success-rule bg-success-soft text-success" : /pending|review|invited/.test(status) ? "border-warning-rule bg-warning-soft text-warning" : "border-rule bg-canvas text-muted"}`}>
       {status.replaceAll("_", " ")}
     </span>
   );

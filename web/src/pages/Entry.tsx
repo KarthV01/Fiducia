@@ -34,7 +34,7 @@ export function EntryPage() {
 
 function WorkspacePreview() {
   return <figure className="relative isolate mx-auto w-full max-w-lg" aria-label="Illustrative collaboration workspace preview">
-    <div aria-hidden="true" className="absolute -inset-8 -z-10 rounded-full bg-accent/15 blur-3xl" />
+    <div aria-hidden="true" className="absolute inset-0 -z-10 rounded-full bg-accent/15 blur-3xl" />
     <div className="overflow-hidden rounded-2xl border border-rule bg-surface shadow-[0_24px_80px_#0002]">
       <div className="flex items-center justify-between border-b border-rule px-5 py-4"><span className="text-xs font-medium">Your next collaboration</span><span className="rounded-full bg-accent-soft px-2 py-1 text-[10px] text-link">Workspace preview</span></div>
       <div className="p-5 sm:p-7">

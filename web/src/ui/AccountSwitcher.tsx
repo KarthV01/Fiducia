@@ -64,7 +64,7 @@ export function AccountSwitcher({ currentSession }: { currentSession: Session })
         <span aria-hidden="true" className="text-muted">⌄</span>
       </button>
       {open ? (
-        <div className="absolute right-0 top-12 z-50 w-[min(320px,calc(100vw-2rem))] rounded-xl border border-rule bg-surface p-3 shadow-[0_18px_60px_#0008]">
+        <div className="absolute right-0 top-12 z-50 w-[min(320px,calc(100vw-2rem))] rounded-xl border border-rule bg-surface p-3 shadow-floating">
           {data?.user ? (
             <div className="mb-3 border-b border-rule px-2 pb-3 text-sm">
               <div className="font-medium text-ink">{data.user.name ?? data.user.email}</div>

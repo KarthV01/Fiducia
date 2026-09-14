@@ -232,7 +232,7 @@ function DeliverableWorkflow({
           {latest.proofUrl ? <a className="mt-2 block break-all text-link underline" href={latest.proofUrl} target="_blank" rel="noreferrer">{latest.proofUrl}</a> : null}
           {latest.notes ? <p className="mt-2 whitespace-pre-wrap text-muted">{latest.notes}</p> : null}
           {latest.evidence.map((item) => <a key={item.id} className="mt-2 block break-all text-link underline" href={item.url} target="_blank" rel="noreferrer">{item.label ?? item.url}</a>)}
-          {latest.isLate ? <p className="mt-2 text-[#f49ba5]">Submitted after the contract deadline.</p> : null}
+          {latest.isLate ? <p className="mt-2 text-danger">Submitted after the contract deadline.</p> : null}
           {latest.reviews.map((review) => review.comment ? <p key={review.id} className="mt-3 border-l-2 border-ink/25 pl-3 text-muted"><strong>{review.decision.replaceAll("_", " ")}:</strong> {review.comment}</p> : null)}
           {latest.approvedTxHash ? <div className="mt-3"><CopyText value={latest.approvedTxHash} label={truncateHash(latest.approvedTxHash)} /></div> : null}
         </div>
@@ -373,11 +373,11 @@ function UploadDropzone({
     <div>
       <div className="mb-1.5 text-sm text-ink">
         {isFinalCut ? "Private final-cut video" : "Promotional concept file"}
-        <span className="ml-0.5 text-[#f49ba5]" aria-hidden="true">*</span>
+        <span className="ml-0.5 text-danger" aria-hidden="true">*</span>
       </div>
       <input ref={inputRef} className="sr-only" type="file" accept={accept} onChange={handleInput} />
       <div
-        className={`rounded-[8px] border-2 border-dashed px-5 py-7 text-center transition-colors ${dragging ? "border-accent bg-accent-soft" : error ? "border-[#f49ba5] bg-[#332128]" : "border-ink/30 bg-canvas/45 hover:border-accent hover:bg-accent-soft/45"}`}
+        className={`rounded-[8px] border-2 border-dashed px-5 py-7 text-center transition-colors ${dragging ? "border-accent bg-accent-soft" : error ? "border-danger bg-danger-soft" : "border-ink/30 bg-canvas/45 hover:border-accent hover:bg-accent-soft/45"}`}
         onDragEnter={(event) => { event.preventDefault(); setDragging(true); }}
         onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setDragging(true); }}
         onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false); }}
@@ -403,7 +403,7 @@ function UploadDropzone({
           {isFinalCut ? "MP4, MOV, or WebM video only" : "Video, image, PDF, TXT, DOC, or DOCX"} · 5 GB max
         </p>
       </div>
-      {error ? <p className="mt-1.5 text-xs text-[#f49ba5]" role="alert">{error}</p> : null}
+      {error ? <p className="mt-1.5 text-xs text-danger" role="alert">{error}</p> : null}
     </div>
   );
 }

@@ -96,7 +96,7 @@ export function NetworkPage() {
       {message ? <div className="mb-4"><Banner tone="info">{message}</Banner></div> : null}
       <div className="mb-5 flex gap-1 border-b-2 border-ink/20">
         {(["discover", "connections", "invitations"] as const).map((item) => (
-          <button key={item} type="button" className={`border-b-2 px-4 py-2.5 text-sm font-medium capitalize ${tab === item ? "-mb-0.5 border-accent text-accent" : "border-transparent text-muted hover:text-ink"}`} onClick={() => setTab(item)}>{item}</button>
+          <button key={item} type="button" className={`border-b-2 px-4 py-2.5 text-sm font-medium capitalize ${tab === item ? "-mb-0.5 border-accent text-link" : "border-transparent text-muted hover:text-ink"}`} onClick={() => setTab(item)}>{item}</button>
         ))}
       </div>
 
@@ -154,5 +154,5 @@ function LinkButton({ to, secondary = false, children }: { to: string; secondary
 }
 
 function RequestSection({ title, empty, items, render }: { title: string; empty: string; items: ConnectionRequest[]; render: (item: ConnectionRequest) => ReactNode }) {
-  return <section><h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.04em] text-muted">{title} <span className="ml-1 rounded-full bg-accent-soft px-2 py-0.5 text-accent">{items.length}</span></h2><div className="space-y-3">{items.length ? items.map(render) : <p className="rounded-[8px] border-2 border-ink/15 bg-surface p-5 text-sm text-muted">{empty}</p>}</div></section>;
+  return <section><h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.04em] text-muted">{title} <span className="ml-1 rounded-full bg-accent-soft px-2 py-0.5 text-link">{items.length}</span></h2><div className="space-y-3">{items.length ? items.map(render) : <p className="rounded-[8px] border-2 border-ink/15 bg-surface p-5 text-sm text-muted">{empty}</p>}</div></section>;
 }

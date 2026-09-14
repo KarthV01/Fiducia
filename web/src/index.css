@@ -8,11 +8,51 @@
   --color-muted: #a0a8bb;
   --color-rule: #2b303d;
   --color-accent: #6155d9;
-  --color-accent-hover: #7265ec;
+  --color-accent-hover: #6d60df;
   --color-accent-soft: #28263f;
   --color-link: #b4aaff;
+  --color-sidebar: #14161d;
+  --color-accent-rule: #443e59;
+  --color-message-own: #242231;
+  --color-danger: #f49ba5;
+  --color-danger-soft: #332128;
+  --color-danger-rule: #75404a;
+  --color-success: #9edbc3;
+  --color-success-soft: #1c322c;
+  --color-success-rule: #35574d;
+  --color-warning: #e9c991;
+  --color-warning-soft: #322c21;
+  --color-warning-rule: #635134;
   --radius-sm: 6px;
   --radius-md: 8px;
+  --shadow-floating: 0 12px 48px rgb(0 0 0 / 0.35);
+}
+
+:root { color-scheme: dark; }
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-canvas: #f6f5fa;
+  --color-surface: #ffffff;
+  --color-sidebar: #eeecf5;
+  --color-ink: #242332;
+  --color-muted: #626174;
+  --color-rule: #dedbe8;
+  --color-accent: #6155d9;
+  --color-accent-hover: #5144bf;
+  --color-accent-soft: #eee9fc;
+  --color-link: #5c46b8;
+  --color-accent-rule: #d3c9f0;
+  --color-message-own: #f0ecfc;
+  --color-danger: #b12c42;
+  --color-danger-soft: #fff0f2;
+  --color-danger-rule: #edb8c1;
+  --color-success: #236749;
+  --color-success-soft: #eaf6ef;
+  --color-success-rule: #bbdfca;
+  --color-warning: #855c16;
+  --color-warning-soft: #fff6e5;
+  --color-warning-rule: #e8d1a5;
+  --shadow-floating: 0 12px 40px rgb(47 36 87 / 0.12);
 }
 
 html,
@@ -22,7 +62,6 @@ body,
 }
 
 body {
-  color-scheme: dark;
   margin: 0;
   background: var(--color-canvas);
   color: var(--color-ink);
@@ -55,15 +94,16 @@ button:disabled {
 }
 
 ::selection {
-  background: #514890;
+  background: var(--color-accent);
+  color: white;
 }
 
 :focus-visible {
-  outline: 2px solid #b4aaff;
+  outline: 2px solid var(--color-link);
   outline-offset: 3px;
 }
 
-* { scrollbar-width: thin; scrollbar-color: #414758 transparent; }
+* { scrollbar-width: thin; scrollbar-color: var(--color-rule) transparent; }
 
 .messaging-workspace { overflow: hidden; background: var(--color-surface); }
 .messaging-grid { display: grid; grid-template-columns: 280px minmax(0, 1fr); height: clamp(480px, calc(100dvh - 10rem), 960px); }

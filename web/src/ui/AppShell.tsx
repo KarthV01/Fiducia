@@ -7,6 +7,7 @@ import { connectProfileRealtime } from "../lib/realtime";
 import type { RealtimeEvent } from "../lib/types";
 import { Icon } from "./Icon";
 import { MessagingDock } from "./MessagingDock";
+import { ThemeToggle } from "./ThemeToggle";
 
 export type NavItem = {
   to: string;
@@ -74,9 +75,9 @@ export function AppShell({
       event.preventDefault();
       window.dispatchEvent(new CustomEvent("messaging:open", { detail: { identityId, recipientId } }));
     }}>
-      <aside className="flex shrink-0 flex-col border-b border-rule bg-[#14161d] md:sticky md:top-0 md:h-screen md:w-52 md:border-r md:border-b-0 xl:w-60">
+      <aside className="flex shrink-0 flex-col border-b border-rule bg-sidebar md:sticky md:top-0 md:h-screen md:w-52 md:border-r md:border-b-0 xl:w-60">
         <div className="flex h-20 items-center gap-3 px-6">
-          <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-accent text-lg font-semibold text-white">p<span className="text-[#c1b9ff]">.</span></span>
+          <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-accent text-lg font-semibold text-white">p<span className="text-white/70">.</span></span>
           <span className="text-lg font-semibold tracking-[-0.04em] text-ink">payouts</span>
         </div>
         <p className="mb-3 hidden px-6 text-[10px] font-medium uppercase tracking-[0.16em] text-muted md:block">Workspace</p>
@@ -88,7 +89,7 @@ export function AppShell({
               end
               className={({ isActive }) =>
                 `shrink-0 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
-                  isActive ? "border-[#46405f] bg-accent-soft text-[#d4cdff]" : "border-transparent text-muted hover:bg-white/[0.035] hover:text-ink"
+                  isActive ? "border-accent-rule bg-accent-soft text-link" : "border-transparent text-muted hover:bg-ink/5 hover:text-ink"
                 }`
               }
             >
@@ -104,7 +105,7 @@ export function AppShell({
             <div className="truncate text-sm font-semibold text-ink">{accountLabel}</div>
             {accountMeta ? <div className="truncate font-mono text-[11px] text-muted">{accountMeta}</div> : null}
           </div>
-          <AccountSwitcher currentSession={currentSession} />
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3"><AccountSwitcher currentSession={currentSession} /><ThemeToggle /></div>
         </header>
         <main className="mx-auto w-full max-w-[1600px] flex-1 px-5 pt-8 pb-24 md:px-8 xl:px-10">{children}</main>
       </div>
@@ -114,5 +115,5 @@ export function AppShell({
 }
 
 function NavBadge({ count }: { count: number }) {
-  return count > 0 ? <span className="rounded-full bg-accent-soft px-1.5 py-0.5 text-[10px] leading-none text-[#d4cdff]">{count > 99 ? "99+" : count}</span> : null;
+  return count > 0 ? <span className="rounded-full bg-accent-soft px-1.5 py-0.5 text-[10px] leading-none text-link">{count > 99 ? "99+" : count}</span> : null;
 }
