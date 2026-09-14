@@ -22,6 +22,7 @@ import {
 } from "../services/agreementService.js";
 import { reviewDeliverable } from "../services/deliverableService.js";
 import { areConnected, socialIdentityId } from "../services/networkService.js";
+import { requirePrimaryCreatorWallet } from "../accounts/creatorWallets.js";
 
 type RouteDeps = {
   prisma: PrismaClient;
@@ -96,10 +97,11 @@ export async function registerSponsorRoutes(app: FastifyInstance, deps: RouteDep
     if (!await areConnected(prisma, socialIdentityId("sponsor", sponsor.id), socialIdentityId("creator", creator.id))) {
       throw conflict("Connect with this creator before drafting a contract.");
     }
+    const payoutWallet = await requirePrimaryCreatorWallet(prisma, creator.id);
     const agreementInput = buildAgreementInputFromContractInvite(
       input,
       sponsor,
-      creator,
+      { ...creator, walletAddress: payoutWallet.address },
       deps.chain?.defaultTokenAddress,
     );
     const agreement = await createAgreementFromInput(prisma, agreementInput);

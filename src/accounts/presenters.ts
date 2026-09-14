@@ -194,8 +194,9 @@ function findAgreementCreator(agreement: AgreementView, creators: CreatorProfile
     return null;
   }
 
-  const creator = creators.find(
-    (candidate) => candidate.walletAddress.toLowerCase() === participant.walletAddress.toLowerCase(),
+  const creator = creators.find((candidate) =>
+    candidate.id === agreement.contractInvite?.creatorProfileId
+    || candidate.walletAddress?.toLowerCase() === participant.walletAddress.toLowerCase(),
   );
   return creator
     ? publicCreatorProfile(creator)

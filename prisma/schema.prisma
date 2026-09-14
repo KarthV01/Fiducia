@@ -306,6 +306,7 @@ model AuthIdentity {
   updatedAt       DateTime @updatedAt
 
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creatorWallets  CreatorWalletConnection[]
 
   @@unique([provider, providerSubject])
   @@index([userId, provider, revokedAt])
@@ -364,7 +365,7 @@ model CreatorProfile {
   userId          String
   handle          String           @unique
   displayName     String
-  walletAddress   String           @unique
+  walletAddress   String?
   channelUrl      String?
   category        String
   averageViews    Int              @default(0)
@@ -377,6 +378,28 @@ model CreatorProfile {
   contractInvites ContractInvite[]
   youtubeConnection YouTubeConnection?
   socialIdentity    SocialIdentity?
+  walletConnections CreatorWalletConnection[]
+}
+
+model CreatorWalletConnection {
+  id               String    @id @default(cuid())
+  creatorProfileId String
+  authIdentityId   String?
+  address          String
+  addressKey       String
+  source           String
+  isPrimary        Boolean   @default(false)
+  verifiedAt       DateTime?
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  creatorProfile   CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  authIdentity     AuthIdentity?   @relation(fields: [authIdentityId], references: [id], onDelete: SetNull)
+
+  @@unique([creatorProfileId, addressKey])
+  @@index([creatorProfileId, isPrimary, revokedAt])
+  @@index([addressKey, revokedAt])
 }
 
 model SocialIdentity {

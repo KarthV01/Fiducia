@@ -176,6 +176,20 @@ export async function listAgreementsForCreatorWallet(
   return listAgreementsForParticipantWallet(prisma, PARTICIPANT_ROLE.creator, creatorWalletAddress);
 }
 
+export async function listAgreementsForCreatorProfile(prisma: PrismaClient, creatorProfileId: string): Promise<AgreementView[]> {
+  const wallets = await prisma.creatorWalletConnection.findMany({ where: { creatorProfileId }, select: { address: true } });
+  return prisma.agreement.findMany({
+    where: {
+      OR: [
+        { contractInvite: { is: { creatorProfileId } } },
+        ...(wallets.length ? [{ participants: { some: { role: PARTICIPANT_ROLE.creator, walletAddress: { in: wallets.map((wallet) => wallet.address) } } } }] : []),
+      ],
+    },
+    include: agreementInclude,
+    orderBy: { createdAt: "desc" },
+  });
+}
+
 async function listAgreementsForParticipantWallet(
   prisma: PrismaClient,
   role: string,

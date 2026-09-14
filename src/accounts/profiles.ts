@@ -6,6 +6,7 @@ import { LOCAL_CHAIN_ID } from "../blockchain/networks.js";
 import { conflict, forbidden, notFound, serviceUnavailable } from "../http/errors.js";
 import { CONTRACT_INVITE_STATUS, PROFILE_ROLE } from "./constants.js";
 import type { PrismaClient, SponsorProfile, CreatorProfile } from "@prisma/client";
+import { attachWalletIdentityToNewCreator } from "./creatorWallets.js";
 
 const handleInput = z
   .string()
@@ -102,28 +103,17 @@ export async function createSponsorProfile(
 
 export async function createCreatorProfile(prisma: PrismaClient, userId: string, input: CreatorProfileInput) {
   await ensureHandleAvailable(prisma, input.handle, "creator");
-  const wallet = generateWallet();
-
-  return prisma.$transaction(async (tx) => {
+  const profile = await prisma.$transaction(async (tx) => {
     const profile = await tx.creatorProfile.create({
       data: {
         userId,
         handle: input.handle,
         displayName: input.displayName,
-        walletAddress: wallet.address,
+        walletAddress: null,
         channelUrl: input.channelUrl,
         category: input.category,
         audience: input.audience,
         avatarUrl: input.avatarUrl,
-      },
-    });
-
-    await tx.profileWallet.create({
-      data: {
-        profileType: PROFILE_ROLE.creator,
-        profileId: profile.id,
-        walletAddress: wallet.address,
-        privateKey: wallet.privateKey,
       },
     });
 
@@ -133,6 +123,7 @@ export async function createCreatorProfile(prisma: PrismaClient, userId: string,
 
     return profile;
   });
+  return attachWalletIdentityToNewCreator(prisma, userId, profile);
 }
 
 export async function getSponsorProfileForUser(
@@ -239,7 +230,7 @@ export async function requirePendingInviteOwnership(
 ) {
   const invite = await prisma.contractInvite.findUnique({
     where: { id: inviteId },
-    include: { sponsorProfile: true, creatorProfile: true, agreement: true },
+    include: { sponsorProfile: true, creatorProfile: true, agreement: { include: { participants: true } } },
   });
 
   if (!invite || invite.creatorProfileId !== creatorProfileId) {

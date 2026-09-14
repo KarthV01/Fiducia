@@ -2,6 +2,9 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { buildApp } from "../src/app.js";
 import { hashSessionToken } from "../src/accounts/auth.js";
 import { FakeChainClient, FakePrisma } from "./support/fakes.js";
+import { privateKeyToAccount } from "viem/accounts";
+
+const creatorWalletAccount = privateKeyToAccount("0x8b3a350cf5c34c9194ca3a545d4cabe8b238f28d870f39a5f056d7b7b84c6f1e");
 
 describe("email-backed account API", () => {
   let prisma: FakePrisma;
@@ -261,6 +264,7 @@ async function signIn(prisma: FakePrisma, email: string) {
     },
   });
   const token = `token-${email}`;
+  await prisma.authIdentity.create({ data: { userId: user.id, provider: "google", providerSubject: `google-${email}`, email } });
   await prisma.authSession.create({
     data: {
       userId: user.id,
@@ -299,7 +303,14 @@ async function createCreator(app: Awaited<ReturnType<typeof buildApp>>, cookie: 
     },
   });
   expect(response.statusCode).toBe(201);
-  return response.json();
+  const creator = response.json();
+  const challenge = await app.inject({ method: "POST", url: `/api/creators/${creator.id}/wallets/challenges`, headers: { cookie }, payload: { address: creatorWalletAccount.address, chainId: 31337 } });
+  expect(challenge.statusCode).toBe(201);
+  const issued = challenge.json();
+  const signature = await creatorWalletAccount.signMessage({ message: issued.message });
+  const linked = await app.inject({ method: "POST", url: `/api/creators/${creator.id}/wallets`, headers: { cookie }, payload: { challengeId: issued.challengeId, message: issued.message, signature, walletClient: "metamask" } });
+  expect(linked.statusCode).toBe(201);
+  return { ...creator, walletAddress: linked.json().address };
 }
 
 async function connectProfiles(

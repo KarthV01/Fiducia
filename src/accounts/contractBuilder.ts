@@ -54,7 +54,7 @@ export type ContractInviteFormInput = z.infer<typeof contractInviteFormSchema>;
 export function buildAgreementInputFromContractInvite(
   input: ContractInviteFormInput,
   sponsor: SponsorProfile,
-  creator: CreatorProfile,
+  creator: CreatorProfile & { walletAddress: string },
   tokenAddress?: string,
 ): CreateAgreementInput {
   const base = BigInt(input.basePayoutAmount);

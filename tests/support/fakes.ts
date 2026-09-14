@@ -178,7 +178,7 @@ type CreatorProfileRow = {
   userId: string;
   handle: string;
   displayName: string;
-  walletAddress: string;
+  walletAddress: string | null;
   channelUrl: string | null;
   category: string;
   averageViews: number;
@@ -186,6 +186,11 @@ type CreatorProfileRow = {
   avatarUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
+};
+
+type CreatorWalletConnectionRow = {
+  id: string; creatorProfileId: string; authIdentityId: string | null; address: string; addressKey: string;
+  source: string; isPrimary: boolean; verifiedAt: Date | null; revokedAt: Date | null; createdAt: Date; updatedAt: Date;
 };
 
 type ProfileWalletRow = {
@@ -277,6 +282,7 @@ export class FakePrisma {
   private walletChallenges: WalletChallengeRow[] = [];
   private sponsorProfiles: SponsorProfileRow[] = [];
   private creatorProfiles: CreatorProfileRow[] = [];
+  private creatorWalletConnections: CreatorWalletConnectionRow[] = [];
   private profileWallets: ProfileWalletRow[] = [];
   private socialIdentities: SocialIdentityRow[] = [];
   private connections: ConnectionRow[] = [];
@@ -559,6 +565,11 @@ export class FakePrisma {
       if (row) { Object.assign(row, update, { updatedAt: new Date() }); return row; }
       return this.authIdentity.create({ data: create });
     },
+    findFirst: async ({ where }: { where: { userId?: string; provider?: string; revokedAt?: null } }) => this.authIdentities.find((item) => (!where.userId || item.userId === where.userId) && (!where.provider || item.provider === where.provider) && (where.revokedAt !== null || item.revokedAt === null)) ?? null,
+    count: async ({ where }: { where: { userId?: string; revokedAt?: null; id?: { not: string } } }) => this.authIdentities.filter((item) => (!where.userId || item.userId === where.userId) && (where.revokedAt !== null || item.revokedAt === null) && (!where.id?.not || item.id !== where.id.not)).length,
+    update: async ({ where, data }: { where: { id: string }; data: Partial<AuthIdentityRow> }) => {
+      const row = this.authIdentities.find((item) => item.id === where.id); if (!row) throw new Error("Auth identity not found"); Object.assign(row, data, { updatedAt: new Date() }); return row;
+    },
   };
 
   walletChallenge = {
@@ -642,7 +653,7 @@ export class FakePrisma {
         userId: data.userId!,
         handle: data.handle!,
         displayName: data.displayName!,
-        walletAddress: data.walletAddress!,
+        walletAddress: data.walletAddress ?? null,
         channelUrl: data.channelUrl ?? null,
         category: data.category!,
         averageViews: data.averageViews ?? 0,
@@ -665,6 +676,24 @@ export class FakePrisma {
         .sort((a, b) => a.displayName.localeCompare(b.displayName));
       return args?.take ? rows.slice(0, args.take) : rows;
     },
+    update: async ({ where, data }: { where: { id: string }; data: Partial<CreatorProfileRow> }) => {
+      const row = this.creatorProfiles.find((profile) => profile.id === where.id); if (!row) throw new Error("Creator profile not found"); Object.assign(row, data, { updatedAt: new Date() }); return row;
+    },
+  };
+
+  creatorWalletConnection = {
+    create: async ({ data }: { data: Partial<CreatorWalletConnectionRow> }) => {
+      const now = new Date();
+      const row: CreatorWalletConnectionRow = { id: data.id ?? this.id("creator_wallet"), creatorProfileId: data.creatorProfileId!, authIdentityId: data.authIdentityId ?? null, address: data.address!, addressKey: data.addressKey!, source: data.source!, isPrimary: data.isPrimary ?? false, verifiedAt: data.verifiedAt ?? null, revokedAt: data.revokedAt ?? null, createdAt: data.createdAt ?? now, updatedAt: data.updatedAt ?? now };
+      this.creatorWalletConnections.push(row); return row;
+    },
+    findUnique: async ({ where }: { where: { id?: string; creatorProfileId_addressKey?: { creatorProfileId: string; addressKey: string } } }) => this.creatorWalletConnections.find((item) => (where.id && item.id === where.id) || (where.creatorProfileId_addressKey && item.creatorProfileId === where.creatorProfileId_addressKey.creatorProfileId && item.addressKey === where.creatorProfileId_addressKey.addressKey)) ?? null,
+    findFirst: async ({ where }: { where: any }) => this.creatorWalletConnections.find((item) => (!where.creatorProfileId || item.creatorProfileId === where.creatorProfileId) && (!where.authIdentityId || item.authIdentityId === where.authIdentityId) && (!where.isPrimary || item.isPrimary) && (where.revokedAt !== null || item.revokedAt === null) && (!where.verifiedAt?.not || item.verifiedAt !== null) && (!where.id?.not || item.id !== where.id.not)) ?? null,
+    findMany: async ({ where = {}, select }: { where?: any; select?: any } = {}) => this.creatorWalletConnections.filter((item) => (!where.creatorProfileId || item.creatorProfileId === where.creatorProfileId) && (where.revokedAt !== null || item.revokedAt === null)).map((item) => select?.address ? { address: item.address } : item),
+    count: async ({ where }: { where: any }) => this.creatorWalletConnections.filter((item) => (!where.creatorProfileId || item.creatorProfileId === where.creatorProfileId) && (!where.authIdentityId || item.authIdentityId === where.authIdentityId) && (!where.id?.not || item.id !== where.id.not) && (where.revokedAt !== null || item.revokedAt === null) && (!where.verifiedAt?.not || item.verifiedAt !== null)).length,
+    update: async ({ where, data }: { where: { id: string }; data: Partial<CreatorWalletConnectionRow> }) => { const row = this.creatorWalletConnections.find((item) => item.id === where.id); if (!row) throw new Error("Creator wallet not found"); Object.assign(row, data, { updatedAt: new Date() }); return row; },
+    updateMany: async ({ where, data }: { where: any; data: Partial<CreatorWalletConnectionRow> }) => { const rows = this.creatorWalletConnections.filter((item) => !where.creatorProfileId || item.creatorProfileId === where.creatorProfileId); rows.forEach((item) => Object.assign(item, data, { updatedAt: new Date() })); return { count: rows.length }; },
+    upsert: async ({ where, create, update }: { where: { creatorProfileId_addressKey: { creatorProfileId: string; addressKey: string } }; create: Partial<CreatorWalletConnectionRow>; update: Partial<CreatorWalletConnectionRow> }) => { const row = await this.creatorWalletConnection.findUnique({ where }); return row ? this.creatorWalletConnection.update({ where: { id: row.id }, data: update }) : this.creatorWalletConnection.create({ data: create }); },
   };
 
   profileWallet = {
@@ -987,14 +1016,21 @@ export class FakePrisma {
     }
 
     const typed = where as {
+      OR?: unknown[];
       title?: string;
+      contractInvite?: { is?: { creatorProfileId?: string } };
       participants?: {
         some?: {
           role?: string;
-          walletAddress?: string;
+          walletAddress?: string | { in: string[] };
         };
       };
     };
+
+    if (typed.OR) return typed.OR.some((part) => this.matchesAgreementWhere(agreement, part));
+    if (typed.contractInvite?.is?.creatorProfileId) {
+      return this.contractInvites.some((invite) => invite.agreementId === agreement.id && invite.creatorProfileId === typed.contractInvite!.is!.creatorProfileId);
+    }
 
     if (typed.title && agreement.title !== typed.title) {
       return false;
@@ -1006,8 +1042,9 @@ export class FakePrisma {
         (participant) =>
           participant.agreementId === agreement.id &&
           (!participantFilter.role || participant.role === participantFilter.role) &&
-          (!participantFilter.walletAddress ||
-            participant.walletAddress.toLowerCase() === participantFilter.walletAddress.toLowerCase()),
+          (!participantFilter.walletAddress || (typeof participantFilter.walletAddress === "string"
+            ? participant.walletAddress.toLowerCase() === participantFilter.walletAddress.toLowerCase()
+            : participantFilter.walletAddress.in.some((address) => address.toLowerCase() === participant.walletAddress.toLowerCase()))),
       );
     }
 
@@ -1080,6 +1117,7 @@ export class FakePrisma {
       performanceRules: this.performanceRules.filter((rule) => rule.agreementId === id),
       chainOperations: this.chainOperations.filter((operation) => operation.agreementId === id),
       blockchainRecord: this.blockchainRecords.find((record) => record.agreementId === id) ?? null,
+      contractInvite: this.contractInvites.find((invite) => invite.agreementId === id) ?? null,
     };
   }
 

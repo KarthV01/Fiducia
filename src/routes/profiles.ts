@@ -12,6 +12,7 @@ import {
   searchCreatorProfiles,
   sponsorProfileSchema,
 } from "../accounts/profiles.js";
+import { forbidden } from "../http/errors.js";
 
 type RouteDeps = {
   prisma: PrismaClient;
@@ -33,6 +34,7 @@ export async function registerProfileRoutes(app: FastifyInstance, deps: RouteDep
 
   app.post("/api/profiles/sponsors", async (request, reply) => {
     const user = await requireUser(prisma, request);
+    if (!user.email) throw forbidden("A verified email sign-in is required to create a sponsor profile.");
     const input = sponsorProfileSchema.parse(request.body);
     const sponsor = await createSponsorProfile(prisma, user.id, input, deps.chain);
     return reply.code(201).send(publicSponsorProfile(sponsor));

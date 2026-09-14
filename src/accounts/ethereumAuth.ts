@@ -10,8 +10,16 @@ const MAX_CHALLENGES_PER_ADDRESS = 10;
 const MAX_VERIFY_ATTEMPTS = 5;
 
 export type EthereumChallenge = { challengeId: string; message: string; expiresAt: string };
+export type WalletChallengePurpose = "sign_in" | "link_creator";
 
 export async function createEthereumChallenge(prisma: PrismaClient, input: { address: string; chainId: number }): Promise<EthereumChallenge> {
+  return issueEthereumChallenge(prisma, { ...input, purpose: "sign_in" });
+}
+
+export async function issueEthereumChallenge(
+  prisma: PrismaClient,
+  input: { address: string; chainId: number; purpose: WalletChallengePurpose; userId?: string; profileId?: string },
+): Promise<EthereumChallenge> {
   let address: Address;
   try { address = getAddress(input.address); } catch { throw badRequest("Enter a valid Ethereum wallet address."); }
   if (!Number.isSafeInteger(input.chainId) || input.chainId <= 0) throw badRequest("Enter a valid EVM chain ID.");
@@ -25,13 +33,31 @@ export async function createEthereumChallenge(prisma: PrismaClient, input: { add
     issuedAt: new Date(), expirationTime: expiresAt,
     statement: "Sign in to Payouts. This request does not send a transaction or cost gas.",
   });
-  const challenge = await prisma.walletChallenge.create({ data: { purpose: "sign_in", address: address.toLowerCase(), chainId: input.chainId, nonce, messageHash: hash(message), expiresAt } });
+  const challenge = await prisma.walletChallenge.create({ data: { purpose: input.purpose, address: address.toLowerCase(), chainId: input.chainId, nonce, messageHash: hash(message), expiresAt, userId: input.userId, profileId: input.profileId } });
   return { challengeId: challenge.id, message, expiresAt: expiresAt.toISOString() };
 }
 
 export async function verifyEthereumSession(prisma: PrismaClient, input: { challengeId: string; message: string; signature: string; walletClient: string }) {
+  const challenge = await verifyEthereumChallenge(prisma, input, { purpose: "sign_in" });
+  const subject = challenge.address;
+  return prisma.$transaction(async (tx) => {
+    const identity = await tx.authIdentity.findUnique({ where: { provider_providerSubject: { provider: "ethereum", providerSubject: subject } }, include: { user: true } });
+    if (identity?.revokedAt) throw unauthorized("This wallet sign-in has been disconnected.");
+    if (identity) return identity.user;
+    const displayAddress = getAddress(challenge.address);
+    const user = await tx.user.create({ data: { email: null, name: `${displayAddress.slice(0, 6)}...${displayAddress.slice(-4)}` } });
+    await tx.authIdentity.create({ data: { userId: user.id, provider: "ethereum", providerSubject: subject, walletAddress: displayAddress, lastChainId: challenge.chainId } });
+    return user;
+  });
+}
+
+export async function verifyEthereumChallenge(
+  prisma: PrismaClient,
+  input: { challengeId: string; message: string; signature: string; walletClient: string },
+  expected: { purpose: WalletChallengePurpose; userId?: string; profileId?: string },
+) {
   const challenge = await prisma.walletChallenge.findUnique({ where: { id: input.challengeId } });
-  if (!challenge || challenge.purpose !== "sign_in") throw unauthorized("Wallet challenge is invalid.");
+  if (!challenge || challenge.purpose !== expected.purpose || (challenge.userId ?? undefined) !== expected.userId || (challenge.profileId ?? undefined) !== expected.profileId) throw unauthorized("Wallet challenge is invalid.");
   if (challenge.usedAt) throw conflict("This wallet challenge has already been used.");
   if (challenge.expiresAt <= new Date()) throw unauthorized("Wallet challenge expired. Please try again.");
   if (challenge.attempts >= MAX_VERIFY_ATTEMPTS) throw unauthorized("Too many invalid signature attempts. Please start again.");
@@ -44,18 +70,9 @@ export async function verifyEthereumSession(prisma: PrismaClient, input: { chall
   let valid = false;
   try { valid = await verifyMessage({ address: getAddress(challenge.address), message: input.message, signature: input.signature as Hex }); } catch { valid = false; }
   if (!valid) throw unauthorized("Wallet signature could not be verified.");
-  const subject = challenge.address;
-  return prisma.$transaction(async (tx) => {
-    const consumed = await tx.walletChallenge.updateMany({ where: { id: challenge.id, usedAt: null }, data: { usedAt: new Date() } });
-    if (consumed.count !== 1) throw conflict("This wallet challenge has already been used.");
-    const identity = await tx.authIdentity.findUnique({ where: { provider_providerSubject: { provider: "ethereum", providerSubject: subject } }, include: { user: true } });
-    if (identity?.revokedAt) throw unauthorized("This wallet sign-in has been disconnected.");
-    if (identity) return identity.user;
-    const displayAddress = getAddress(challenge.address);
-    const user = await tx.user.create({ data: { email: null, name: `${displayAddress.slice(0, 6)}...${displayAddress.slice(-4)}` } });
-    await tx.authIdentity.create({ data: { userId: user.id, provider: "ethereum", providerSubject: subject, walletAddress: getAddress(challenge.address), lastChainId: challenge.chainId } });
-    return user;
-  });
+  const consumed = await prisma.walletChallenge.updateMany({ where: { id: challenge.id, usedAt: null }, data: { usedAt: new Date() } });
+  if (consumed.count !== 1) throw conflict("This wallet challenge has already been used.");
+  return challenge;
 }
 
 function hash(value: string) { return createHash("sha256").update(value).digest("hex"); }
