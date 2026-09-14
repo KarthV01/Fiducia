@@ -17,6 +17,7 @@ import { ensureSocialIdentities } from "./services/networkService.js";
 import { registerMessagingRoutes } from "./routes/messaging.js";
 import { registerRealtimeRoutes } from "./routes/realtime.js";
 import { InMemoryRealtimePublisher, type RealtimePublisher } from "./services/realtimeService.js";
+import { ensureAuthIdentities } from "./accounts/auth.js";
 
 export type AppDependencies = {
   prisma: PrismaClient;
@@ -27,6 +28,7 @@ export type AppDependencies = {
 
 export async function buildApp(deps: AppDependencies) {
   await ensureSocialIdentities(deps.prisma);
+  await ensureAuthIdentities(deps.prisma);
   const app = Fastify({
     logger: deps.logger ?? true,
   });

@@ -133,12 +133,22 @@ type BlockchainRecordRow = {
 
 type UserRow = {
   id: string;
-  email: string;
+  email: string | null;
   googleSub: string | null;
   name: string | null;
   avatarUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
+};
+
+type AuthIdentityRow = {
+  id: string; userId: string; provider: string; providerSubject: string; email: string | null;
+  walletAddress: string | null; lastChainId: number | null; verifiedAt: Date; revokedAt: Date | null; createdAt: Date; updatedAt: Date;
+};
+
+type WalletChallengeRow = {
+  id: string; purpose: string; address: string; chainId: number; nonce: string; messageHash: string;
+  userId: string | null; profileId: string | null; expiresAt: Date; usedAt: Date | null; attempts: number; createdAt: Date;
 };
 
 type AuthSessionRow = {
@@ -263,6 +273,8 @@ export class FakePrisma {
   private blockchainRecords: BlockchainRecordRow[] = [];
   private users: UserRow[] = [];
   private authSessions: AuthSessionRow[] = [];
+  private authIdentities: AuthIdentityRow[] = [];
+  private walletChallenges: WalletChallengeRow[] = [];
   private sponsorProfiles: SponsorProfileRow[] = [];
   private creatorProfiles: CreatorProfileRow[] = [];
   private profileWallets: ProfileWalletRow[] = [];
@@ -512,7 +524,7 @@ export class FakePrisma {
       const now = new Date();
       const row: UserRow = {
         id: data.id ?? this.id("user"),
-        email: data.email!,
+        email: data.email ?? null,
         googleSub: data.googleSub ?? null,
         name: data.name ?? null,
         avatarUrl: data.avatarUrl ?? null,
@@ -522,11 +534,46 @@ export class FakePrisma {
       this.users.push(row);
       return row;
     },
+    findMany: async ({ where }: { where?: { googleSub?: { not?: null } } } = {}) => this.users.filter((user) => !where?.googleSub?.not || user.googleSub !== null),
     update: async ({ where, data }: { where: { id: string }; data: Partial<UserRow> }) => {
       const row = this.users.find((user) => user.id === where.id);
       if (!row) throw new Error("User not found");
       Object.assign(row, data, { updatedAt: new Date() });
       return row;
+    },
+  };
+
+  authIdentity = {
+    findUnique: async ({ where, include }: { where: { provider_providerSubject?: { provider: string; providerSubject: string }; walletAddress?: string }; include?: { user?: boolean } }) => {
+      const row = this.authIdentities.find((item) => where.walletAddress ? item.walletAddress === where.walletAddress : item.provider === where.provider_providerSubject?.provider && item.providerSubject === where.provider_providerSubject?.providerSubject);
+      return row && include?.user ? { ...row, user: this.users.find((user) => user.id === row.userId)! } : row ?? null;
+    },
+    create: async ({ data }: { data: Partial<AuthIdentityRow> }) => {
+      const now = new Date();
+      const row: AuthIdentityRow = { id: data.id ?? this.id("identity"), userId: data.userId!, provider: data.provider!, providerSubject: data.providerSubject!, email: data.email ?? null, walletAddress: data.walletAddress ?? null, lastChainId: data.lastChainId ?? null, verifiedAt: data.verifiedAt ?? now, revokedAt: data.revokedAt ?? null, createdAt: data.createdAt ?? now, updatedAt: data.updatedAt ?? now };
+      this.authIdentities.push(row); return row;
+    },
+    upsert: async ({ where, create, update }: { where: { provider_providerSubject: { provider: string; providerSubject: string } }; create: Partial<AuthIdentityRow>; update: Partial<AuthIdentityRow> }) => {
+      const key = where.provider_providerSubject;
+      const row = this.authIdentities.find((item) => item.provider === key.provider && item.providerSubject === key.providerSubject);
+      if (row) { Object.assign(row, update, { updatedAt: new Date() }); return row; }
+      return this.authIdentity.create({ data: create });
+    },
+  };
+
+  walletChallenge = {
+    count: async ({ where }: { where: { address: string; createdAt: { gte: Date } } }) => this.walletChallenges.filter((item) => item.address === where.address && item.createdAt >= where.createdAt.gte).length,
+    create: async ({ data }: { data: Partial<WalletChallengeRow> }) => {
+      const row: WalletChallengeRow = { id: data.id ?? this.id("challenge"), purpose: data.purpose!, address: data.address!, chainId: data.chainId!, nonce: data.nonce!, messageHash: data.messageHash!, userId: data.userId ?? null, profileId: data.profileId ?? null, expiresAt: data.expiresAt!, usedAt: data.usedAt ?? null, attempts: data.attempts ?? 0, createdAt: data.createdAt ?? new Date() };
+      this.walletChallenges.push(row); return row;
+    },
+    findUnique: async ({ where }: { where: { id: string } }) => this.walletChallenges.find((item) => item.id === where.id) ?? null,
+    update: async ({ where, data }: { where: { id: string }; data: { attempts?: { increment: number }; usedAt?: Date } }) => {
+      const row = this.walletChallenges.find((item) => item.id === where.id); if (!row) throw new Error("Challenge not found");
+      if (data.attempts) row.attempts += data.attempts.increment; if (data.usedAt) row.usedAt = data.usedAt; return row;
+    },
+    updateMany: async ({ where, data }: { where: { id: string; usedAt: null }; data: { usedAt: Date } }) => {
+      const row = this.walletChallenges.find((item) => item.id === where.id && item.usedAt === null); if (!row) return { count: 0 }; row.usedAt = data.usedAt; return { count: 1 };
     },
   };
 
@@ -886,6 +933,11 @@ export class FakePrisma {
 
   asPrisma(): PrismaClient {
     return this as unknown as PrismaClient;
+  }
+
+  expireWalletChallenge(id: string) {
+    const challenge = this.walletChallenges.find((item) => item.id === id);
+    if (challenge) challenge.expiresAt = new Date(0);
   }
 
   snapshot() {

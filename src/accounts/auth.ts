@@ -26,7 +26,7 @@ export function authConfig() {
   return {
     clientId: requireEnv("GOOGLE_CLIENT_ID"),
     clientSecret: requireEnv("GOOGLE_CLIENT_SECRET"),
-    appUrl: process.env.APP_URL?.trim() || "http://localhost:5173",
+    appUrl: applicationUrl(),
     apiUrl: process.env.API_URL?.trim() || "http://localhost:3000",
     cookieSecret: requireEnv("AUTH_COOKIE_SECRET"),
   };
@@ -112,7 +112,7 @@ export async function upsertGoogleUser(prisma: PrismaClient, profile: GoogleUser
   });
 
   if (existingByGoogle) {
-    return prisma.user.update({
+    const user = await prisma.user.update({
       where: { id: existingByGoogle.id },
       data: {
         email: profile.email.toLowerCase(),
@@ -120,6 +120,8 @@ export async function upsertGoogleUser(prisma: PrismaClient, profile: GoogleUser
         avatarUrl: profile.picture ?? existingByGoogle.avatarUrl,
       },
     });
+    await recordGoogleIdentity(prisma, user.id, profile);
+    return user;
   }
 
   const existingByEmail = await prisma.user.findUnique({
@@ -127,7 +129,7 @@ export async function upsertGoogleUser(prisma: PrismaClient, profile: GoogleUser
   });
 
   if (existingByEmail) {
-    return prisma.user.update({
+    const user = await prisma.user.update({
       where: { id: existingByEmail.id },
       data: {
         googleSub: profile.sub,
@@ -135,9 +137,11 @@ export async function upsertGoogleUser(prisma: PrismaClient, profile: GoogleUser
         avatarUrl: profile.picture ?? existingByEmail.avatarUrl,
       },
     });
+    await recordGoogleIdentity(prisma, user.id, profile);
+    return user;
   }
 
-  return prisma.user.create({
+  const user = await prisma.user.create({
     data: {
       email: profile.email.toLowerCase(),
       googleSub: profile.sub,
@@ -145,10 +149,36 @@ export async function upsertGoogleUser(prisma: PrismaClient, profile: GoogleUser
       avatarUrl: profile.picture ?? null,
     },
   });
+  await recordGoogleIdentity(prisma, user.id, profile);
+  return user;
+}
+
+async function recordGoogleIdentity(prisma: PrismaClient, userId: string, profile: GoogleUserInfo) {
+  // Older test adapters do not expose additive Prisma models.
+  const model = (prisma as PrismaClient & { authIdentity?: PrismaClient["authIdentity"] }).authIdentity;
+  if (!model) return;
+  await model.upsert({
+    where: { provider_providerSubject: { provider: "google", providerSubject: profile.sub } },
+    create: { userId, provider: "google", providerSubject: profile.sub, email: profile.email.toLowerCase() },
+    update: { userId, email: profile.email.toLowerCase(), revokedAt: null, verifiedAt: new Date() },
+  });
+}
+
+export async function ensureAuthIdentities(prisma: PrismaClient) {
+  const model = (prisma as PrismaClient & { authIdentity?: PrismaClient["authIdentity"] }).authIdentity;
+  if (!model) return;
+  const users = await prisma.user.findMany({ where: { googleSub: { not: null } } });
+  for (const user of users) {
+    await model.upsert({
+      where: { provider_providerSubject: { provider: "google", providerSubject: user.googleSub! } },
+      create: { userId: user.id, provider: "google", providerSubject: user.googleSub!, email: user.email },
+      update: { email: user.email },
+    });
+  }
 }
 
 export async function createAuthSession(prisma: PrismaClient, reply: FastifyReply, userId: string) {
-  const config = authConfig();
+  const appUrl = applicationUrl();
   const token = randomToken();
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
   await prisma.authSession.create({
@@ -163,7 +193,7 @@ export async function createAuthSession(prisma: PrismaClient, reply: FastifyRepl
     httpOnly: true,
     maxAge: SESSION_DAYS * 24 * 60 * 60,
     sameSite: "Lax",
-    secure: isHttps(config.appUrl),
+    secure: isHttps(appUrl),
   });
 }
 
@@ -194,14 +224,14 @@ export async function requireUser(prisma: PrismaClient, request: FastifyRequest)
 }
 
 export async function logout(prisma: PrismaClient, request: FastifyRequest, reply: FastifyReply) {
-  const config = authConfig();
+  const appUrl = applicationUrl();
   const token = parseCookies(request)[SESSION_COOKIE];
   if (token) {
     await prisma.authSession.deleteMany({
       where: { tokenHash: hashSessionToken(token) },
     });
   }
-  clearCookie(reply, SESSION_COOKIE, isHttps(config.appUrl));
+  clearCookie(reply, SESSION_COOKIE, isHttps(appUrl));
 }
 
 export function publicUser(user: User): AuthenticatedUser {
@@ -281,6 +311,10 @@ function constantTimeEqual(a: string | undefined, b: string | undefined): boolea
 
 function isHttps(url: string): boolean {
   return url.startsWith("https://");
+}
+
+function applicationUrl(): string {
+  return process.env.APP_URL?.trim() || "http://localhost:5173";
 }
 
 function requireEnv(key: string): string {
