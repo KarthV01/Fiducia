@@ -56,6 +56,7 @@ it("shows a landing page, not account forms, when signed out", async () => {
 });
 it("uses the existing Google OAuth endpoint on the sign-in page", async () => {
   await mount("/login"); expect(container.querySelector('a[href="/api/auth/google/start"]')?.textContent).toContain("Continue with Google");
+  expect(container.textContent).toContain("Continue with MetaMask");
   expect(container.querySelector('input[type="password"]')).toBeNull();
 });
 it("takes returning Google users to their accounts without inline creation fields", async () => {
@@ -83,4 +84,10 @@ it("retains the creation form when the API rejects it", async () => {
   vi.mocked(api.me).mockResolvedValue({ user }); vi.mocked(api.createSponsorProfile).mockRejectedValueOnce(new Error("Handle already taken"));
   await mount("/accounts/new"); await click('input[value="sponsor"]'); await fillInputs(); await click('button[type="submit"]');
   expect(container.textContent).toContain("Handle already taken"); expect(container.querySelector<HTMLInputElement>('input:not([type="radio"])')?.value).toBe("New Studio");
+});
+it("limits wallet-only members to creator profile onboarding", async () => {
+  vi.mocked(api.me).mockResolvedValue({ user: { ...user, email: null } }); await mount("/accounts/new");
+  expect(container.querySelector<HTMLInputElement>('input[value="sponsor"]')?.disabled).toBe(true);
+  expect(container.textContent).toContain("verified email");
+  expect(container.querySelector<HTMLInputElement>('input[value="creator"]')?.disabled).toBe(false);
 });

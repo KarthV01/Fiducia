@@ -1,6 +1,6 @@
 export type AuthUser = {
   id: string;
-  email: string;
+  email: string | null;
   name: string | null;
   avatarUrl: string | null;
 };
@@ -16,11 +16,16 @@ export type SponsorProfile = {
   monthlyBudgetAmount: string;
 };
 
+export type AuthIdentity = { id: string; provider: "google" | "ethereum"; providerSubject: string; email: string | null; walletAddress: string | null; verifiedAt: string; revokedAt: string | null };
+export type WalletChallenge = { challengeId: string; message: string; expiresAt: string };
+export type CreatorWalletConnection = { id: string; address: string; source: "metamask" | "legacy_generated" | string; isPrimary: boolean; verifiedAt: string | null; revokedAt: string | null };
+export type WalletConnectionStatus = "missing" | "connecting" | "signing" | "connected" | "error";
+
 export type CreatorProfile = {
   id: string;
   handle: string;
   displayName: string;
-  walletAddress: string;
+  walletAddress: string | null;
   channelUrl: string | null;
   category: string;
   averageViews: number;

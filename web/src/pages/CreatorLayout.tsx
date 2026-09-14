@@ -27,6 +27,7 @@ export function CreatorLayout() {
         { to: `/creator/${creatorId}/network`, label: "My Network" },
         { to: `/creator/${creatorId}/messages`, label: "Messaging" },
         { to: `/creator/${creatorId}/earnings`, label: "Earnings" },
+        { to: `/creator/${creatorId}/wallets`, label: "Wallets" },
       ]}
     >
       <Outlet />

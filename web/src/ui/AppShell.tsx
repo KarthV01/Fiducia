@@ -93,7 +93,7 @@ export function AppShell({
                 }`
               }
             >
-              <span className="flex items-center gap-3"><Icon name={item.to.endsWith("/network") ? "network" : item.to.endsWith("/messages") ? "messages" : item.to.endsWith("/contracts") ? "contracts" : item.to.endsWith("/earnings") ? "earnings" : "home"} /><span className="flex-1">{item.label}</span><NavBadge count={item.to.endsWith("/messages") ? badges.unread : item.to.endsWith("/network") ? badges.requests : 0} /></span>
+              <span className="flex items-center gap-3"><Icon name={item.to.endsWith("/network") ? "network" : item.to.endsWith("/messages") ? "messages" : item.to.endsWith("/contracts") ? "contracts" : item.to.endsWith("/earnings") ? "earnings" : item.to.endsWith("/wallets") ? "wallet" : "home"} /><span className="flex-1">{item.label}</span><NavBadge count={item.to.endsWith("/messages") ? badges.unread : item.to.endsWith("/network") ? badges.requests : 0} /></span>
             </NavLink>
           ))}
         </nav>

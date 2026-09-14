@@ -10,7 +10,7 @@ import { Button } from "./primitives";
 export type AccountTarget = Session & {
   label: string;
   meta: string;
-  walletAddress: string;
+  walletAddress: string | null;
 };
 
 export function AccountSwitcher({ currentSession }: { currentSession: Session }) {
@@ -178,7 +178,7 @@ function AccountGroup({
                 </div>
                 {active ? <span className="shrink-0 rounded-[4px] bg-accent px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white">Active</span> : null}
               </div>
-              {!compact ? <div className="mt-2 font-mono text-[11px] text-muted">{truncateAddress(target.walletAddress)}</div> : null}
+              {!compact ? <div className="mt-2 font-mono text-[11px] text-muted">{target.walletAddress ? truncateAddress(target.walletAddress) : "Wallet not connected"}</div> : null}
             </button>
           );
         })}

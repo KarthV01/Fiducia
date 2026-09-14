@@ -14,6 +14,7 @@ import { SponsorHomePage } from "./pages/sponsor/Home";
 import { NewContractPage } from "./pages/sponsor/NewContract";
 import { NetworkPage } from "./pages/Network";
 import { MessagingPage } from "./pages/Messaging";
+import { CreatorWalletsPage } from "./pages/creator/Wallets";
 
 function CreatorLegacyDealRedirect() {
   const { creatorId = "" } = useParams();
@@ -60,6 +61,7 @@ export default function App() {
         <Route path="deals" element={<CreatorLegacyDealRedirect />} />
         <Route path="deals/:id" element={<CreatorLegacyDealDetailRedirect />} />
         <Route path="earnings" element={<CreatorEarningsPage />} />
+        <Route path="wallets" element={<CreatorWalletsPage />} />
         <Route path="network" element={<NetworkPage />} />
         <Route path="messages" element={<MessagingPage />} />
       </Route>

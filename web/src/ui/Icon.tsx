@@ -13,6 +13,7 @@ const paths = {
   chevron: "m6 9 6 6 6-6",
   back: "m12 19-7-7 7-7M5 12h14",
   compose: "M12 20H4V4h8M16 3l5 5-9 9-5 1 1-5Z",
+  wallet: "M20 7V5a2 2 0 0 0-2-2H5a3 3 0 0 0 0 6h15v12H5a3 3 0 0 1-3-3V6M16 13h4v4h-4a2 2 0 0 1 0-4Z",
 } as const;
 
 export function Icon({ name, ...props }: SVGProps<SVGSVGElement> & { name: keyof typeof paths }) {
