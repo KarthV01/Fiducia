@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { Outlet, useParams } from "react-router-dom";
 import { api } from "../lib/api";
-import { truncateAddress } from "../lib/format";
 import { writeSession } from "../lib/session";
 import { useResource } from "../lib/useResource";
 import { AppShell } from "../ui/AppShell";
@@ -20,14 +19,15 @@ export function SponsorLayout() {
   return (
     <AppShell
       accountLabel={sponsor?.name ?? "Sponsor"}
-      accountMeta={sponsor ? truncateAddress(sponsor.walletAddress) : undefined}
+      accountMeta={sponsor?.handle}
       currentSession={{ role: "sponsor", id: sponsor?.id ?? sponsorId }}
+      walletConnected={data?.walletConnected}
       nav={[
         { to: `/sponsor/${sponsorId}`, label: "Home" },
         { to: `/sponsor/${sponsorId}/contracts`, label: "Contracts" },
         { to: `/sponsor/${sponsorId}/network`, label: "My Network" },
         { to: `/sponsor/${sponsorId}/messages`, label: "Messaging" },
-        { to: `/sponsor/${sponsorId}/contracts/new`, label: "New contract" },
+        { to: `/sponsor/${sponsorId}/contracts/new`, label: "New contract", requiresWallet: true },
       ]}
     >
       <Outlet />

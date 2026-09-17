@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import type { Session } from "../lib/session";
 import { AccountSwitcher } from "./AccountSwitcher";
 import { api } from "../lib/api";
@@ -9,10 +9,12 @@ import { Icon } from "./Icon";
 import { MessagingDock } from "./MessagingDock";
 import { ThemeToggle } from "./ThemeToggle";
 import { BrandMark } from "./BrandMark";
+import { WalletGateContext } from "../lib/walletGate";
 
 export type NavItem = {
   to: string;
   label: string;
+  requiresWallet?: boolean;
 };
 
 export function AppShell({
@@ -20,12 +22,14 @@ export function AppShell({
   accountLabel,
   accountMeta,
   currentSession,
+  walletConnected,
   children,
 }: {
   nav: NavItem[];
   accountLabel: string;
   accountMeta?: string;
   currentSession: Session;
+  walletConnected?: boolean;
   children: ReactNode;
 }) {
   const identityId = `${currentSession.role}:${currentSession.id}`;
@@ -82,7 +86,7 @@ export function AppShell({
         </div>
         <p className="mb-3 hidden px-6 text-[10px] font-medium uppercase tracking-[0.16em] text-muted md:block">Workspace</p>
         <nav aria-label="Workspace" className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col md:px-4">
-          {nav.map((item) => (
+          {nav.map((item) => item.requiresWallet && walletConnected === false ? <span key={item.to} aria-disabled="true" title="Connect a wallet to unlock contract creation" className="shrink-0 rounded-lg border border-transparent px-3 py-2.5 text-sm font-medium text-muted opacity-45"><span className="flex items-center gap-3"><Icon name="contracts" /><span className="flex-1">{item.label}</span><span aria-hidden="true">🔒</span></span></span> : (
             <NavLink
               key={item.to}
               to={item.to}
@@ -107,7 +111,8 @@ export function AppShell({
           </div>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3"><AccountSwitcher currentSession={currentSession} /><ThemeToggle /></div>
         </header>
-        <main className="mx-auto w-full max-w-[1600px] flex-1 px-5 pt-8 pb-24 md:px-8 xl:px-10">{children}</main>
+        {walletConnected === false ? <div role="alert" className="border-b border-warning-rule bg-warning-soft px-5 py-3 text-warning md:px-8 xl:px-10"><div className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-between gap-3"><div><span className="font-semibold text-ink">Contract actions are locked.</span> <span className="text-sm">Connect and verify a wallet before drafting or accepting contracts.</span></div><Link to="/accounts" className="rounded-lg bg-warning px-3 py-1.5 text-xs font-semibold text-canvas">Connect wallet</Link></div></div> : null}
+        <main className="mx-auto w-full max-w-[1600px] flex-1 px-5 pt-8 pb-24 md:px-8 xl:px-10"><WalletGateContext.Provider value={walletConnected}>{children}</WalletGateContext.Provider></main>
       </div>
       <MessagingDock key={identityId} identityId={identityId} basePath={basePath} unread={badges.unread} />
     </div>

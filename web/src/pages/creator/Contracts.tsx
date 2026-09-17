@@ -4,6 +4,7 @@ import { api } from "../../lib/api";
 import { useResource } from "../../lib/useResource";
 import { ContractTable } from "../../ui/ContractTable";
 import { Banner, PageHeader, Select } from "../../ui/primitives";
+import { useWalletGate } from "../../lib/walletGate";
 
 export function CreatorContractsPage() {
   const { creatorId = "" } = useParams();
@@ -12,6 +13,7 @@ export function CreatorContractsPage() {
   );
   const [status, setStatus] = useState("all");
   const [actionError, setActionError] = useState<string | null>(null);
+  const walletConnected = useWalletGate();
 
   const contracts = useMemo(() => {
     if (!data) {
@@ -35,6 +37,7 @@ export function CreatorContractsPage() {
     <div>
       <PageHeader title="Contracts" description="Sponsorship contracts assigned to this creator." />
       {actionError ? <div className="mb-4"><Banner>{actionError}</Banner></div> : null}
+      {walletConnected === false ? <div className="mb-4"><Banner tone="info">Connect a verified wallet from Your accounts before accepting a contract.</Banner></div> : null}
       <div className="mb-4 max-w-[200px]">
         <Select value={status} onChange={(event) => setStatus(event.target.value)}>
           <option value="all">All statuses</option>
@@ -47,6 +50,7 @@ export function CreatorContractsPage() {
         contracts={contracts}
         counterparty="sponsor"
         hrefFor={(contract) => `/creator/${creatorId}/contracts/${contract.id}`}
+        acceptBlocked={walletConnected === false}
         onAccept={async (inviteId) => {
           setActionError(null);
           try {

@@ -23,6 +23,7 @@ import { areConnected, socialIdentityId } from "../services/networkService.js";
 import { connectCreatorWallet, createCreatorWalletChallenge, disconnectCreatorWallet, listCreatorWallets, makeCreatorWalletPrimary, publicCreatorWallet, requireActiveCreatorPayoutAddress } from "../accounts/creatorWallets.js";
 import { z } from "zod";
 import { PARTICIPANT_ROLE } from "../domain/status.js";
+import { hasVerifiedAccountWallet, requireVerifiedAccountWallet } from "../accounts/accountWallets.js";
 
 type RouteDeps = {
   prisma: PrismaClient;
@@ -35,7 +36,7 @@ export async function registerCreatorRoutes(app: FastifyInstance, deps: RouteDep
   app.get<{ Params: { creatorId: string } }>("/api/creators/:creatorId/dashboard", async (request) => {
     const user = await requireUser(prisma, request);
     const creator = await getCreatorProfileForUser(prisma, user.id, request.params.creatorId);
-    const [agreements, sponsors, invites] = await Promise.all([
+    const [agreements, sponsors, invites, walletConnected] = await Promise.all([
       listAgreementsForCreatorProfile(prisma, creator.id),
       prisma.sponsorProfile.findMany(),
       prisma.contractInvite.findMany({
@@ -43,6 +44,7 @@ export async function registerCreatorRoutes(app: FastifyInstance, deps: RouteDep
         include: { sponsorProfile: true, creatorProfile: true, agreement: { include: agreementInclude } },
         orderBy: { createdAt: "desc" },
       }),
+      hasVerifiedAccountWallet(prisma, user.id),
     ]);
 
     return {
@@ -50,6 +52,7 @@ export async function registerCreatorRoutes(app: FastifyInstance, deps: RouteDep
       totals: buildDashboardTotals(agreements),
       contracts: agreements.map((agreement) => summarizeAgreement(agreement, sponsors, [creator])),
       pendingInvites: invites.map(presentInvite),
+      walletConnected,
     };
   });
 
@@ -86,6 +89,7 @@ export async function registerCreatorRoutes(app: FastifyInstance, deps: RouteDep
     async (request) => {
       const user = await requireUser(prisma, request);
       const creator = await getCreatorProfileForUser(prisma, user.id, request.params.creatorId);
+      await requireVerifiedAccountWallet(prisma, user.id);
       const invite = await requirePendingInviteOwnership(prisma, creator.id, request.params.inviteId);
       if (!await areConnected(prisma, socialIdentityId("sponsor", invite.sponsorProfileId), socialIdentityId("creator", creator.id))) {
         throw conflict("Connect with the sponsor before accepting this contract.");

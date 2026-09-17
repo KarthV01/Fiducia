@@ -70,7 +70,9 @@ export async function searchSocialProfiles(
     take: limit + 1,
     ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
   });
-  const items = identities.slice(0, limit).map((identity) => presentSocialProfile(identity, relationshipFor(activeIdentityId, connectionByIdentity.get(identity.id))));
+  const page = identities.slice(0, limit);
+  const walletReady = await creatorWalletReadyIds(prisma, page);
+  const items = page.map((identity) => presentSocialProfile(identity, relationshipFor(activeIdentityId, connectionByIdentity.get(identity.id)), walletReady.has(identity.creatorProfileId ?? "")));
   return { items, nextCursor: identities.length > limit ? items.at(-1)!.id : null };
 }
 
@@ -90,6 +92,7 @@ export async function listConnections(prisma: PrismaClient, identityId: string, 
       : connection.status === CONNECTION_STATUS.accepted && (connection.requesterId === identityId || connection.recipientId === identityId));
   const otherIds = filtered.map((connection) => connection.requesterId === identityId ? connection.recipientId : connection.requesterId);
   const identities = await prisma.socialIdentity.findMany({ where: { id: { in: otherIds } } });
+  const walletReady = await creatorWalletReadyIds(prisma, identities);
   const byId = new Map(identities.map((identity) => [identity.id, identity]));
   return filtered.flatMap((connection) => {
     const otherId = connection.requesterId === identityId ? connection.recipientId : connection.requesterId;
@@ -101,7 +104,7 @@ export async function listConnections(prisma: PrismaClient, identityId: string, 
       note: connection.note,
       createdAt: connection.createdAt,
       updatedAt: connection.updatedAt,
-      profile: presentSocialProfile(other, relationshipFor(identityId, connection)),
+      profile: presentSocialProfile(other, relationshipFor(identityId, connection), walletReady.has(other.creatorProfileId ?? "")),
     }] : [];
   });
 }
@@ -166,8 +169,15 @@ export async function areConnected(prisma: PrismaClient, firstId: string, second
   return connection?.status === CONNECTION_STATUS.accepted;
 }
 
-export function presentSocialProfile(identity: SocialIdentity, relationship: string = "none") {
-  return { id: identity.id, profileType: identity.profileType, profileId: identity.sponsorProfileId ?? identity.creatorProfileId!, handle: identity.handle, displayName: identity.displayName, avatarUrl: identity.avatarUrl, descriptor: identity.descriptor, relationship };
+export function presentSocialProfile(identity: SocialIdentity, relationship: string = "none", walletReady = false) {
+  return { id: identity.id, profileType: identity.profileType, profileId: identity.sponsorProfileId ?? identity.creatorProfileId!, handle: identity.handle, displayName: identity.displayName, avatarUrl: identity.avatarUrl, descriptor: identity.descriptor, relationship, walletReady: identity.profileType === "creator" ? walletReady : true };
+}
+
+async function creatorWalletReadyIds(prisma: PrismaClient, identities: SocialIdentity[]) {
+  const creatorIds = identities.flatMap((identity) => identity.creatorProfileId ? [identity.creatorProfileId] : []);
+  if (!creatorIds.length) return new Set<string>();
+  const wallets = await prisma.creatorWalletConnection.findMany({ where: { creatorProfileId: { in: creatorIds }, isPrimary: true, verifiedAt: { not: null }, revokedAt: null }, select: { creatorProfileId: true } });
+  return new Set(wallets.map((wallet) => wallet.creatorProfileId));
 }
 
 function relationshipFor(activeId: string, connection?: { requesterId: string; status: string }) {

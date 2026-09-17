@@ -21,6 +21,7 @@ export function CreatorLayout() {
       accountLabel={creator?.displayName ?? "Creator"}
       accountMeta={creator?.handle}
       currentSession={{ role: "creator", id: creatorId }}
+      walletConnected={data?.walletConnected}
       nav={[
         { to: `/creator/${creatorId}`, label: "Home" },
         { to: `/creator/${creatorId}/contracts`, label: "Contracts" },

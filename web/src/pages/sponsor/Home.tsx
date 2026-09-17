@@ -26,7 +26,7 @@ export function SponsorHomePage() {
       <PageHeader
         title="Workspace overview"
         description="Your partnerships, progress, and payments. All in one place."
-        action={<ButtonLink to={`/sponsor/${sponsorId}/contracts/new`}>New contract</ButtonLink>}
+        action={data.walletConnected ? <ButtonLink to={`/sponsor/${sponsorId}/contracts/new`}>New contract</ButtonLink> : <ButtonLink to="/accounts">Connect wallet</ButtonLink>}
       />
       <KpiRow
         items={[

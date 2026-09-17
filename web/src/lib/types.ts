@@ -51,6 +51,7 @@ export type SocialProfile = {
   avatarUrl: string | null;
   descriptor: string | null;
   relationship: RelationshipState;
+  walletReady: boolean;
 };
 
 export type ConnectionRequest = {
@@ -297,6 +298,7 @@ export type BrandDashboard = {
   totals: DashboardTotals;
   contracts: ContractSummary[];
   pendingInvites: ContractInvite[];
+  walletConnected: boolean;
 };
 
 export type CreatorDashboard = {
@@ -304,6 +306,7 @@ export type CreatorDashboard = {
   totals: DashboardTotals;
   contracts: ContractSummary[];
   pendingInvites: ContractInvite[];
+  walletConnected: boolean;
 };
 
 export type MetricOption = {
@@ -315,6 +318,7 @@ export type MetricOption = {
 
 export type ContractBuilder = {
   sponsor: SponsorProfile;
+  walletConnected: boolean;
   metrics: MetricOption[];
   token: { symbol: string; decimals: number; address: string | null };
   defaults: {

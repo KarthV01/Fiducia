@@ -5,6 +5,7 @@ import { FakeChainClient, FakePrisma } from "./support/fakes.js";
 import { privateKeyToAccount } from "viem/accounts";
 
 const creatorWalletAccount = privateKeyToAccount("0x8b3a350cf5c34c9194ca3a545d4cabe8b238f28d870f39a5f056d7b7b84c6f1e");
+const sponsorWalletAccount = privateKeyToAccount("0x0dbbe8e4feebd600f738ce379c34f3bf3d497bc3f571ab4130b22fe67c9f642f");
 
 describe("email-backed account API", () => {
   let prisma: FakePrisma;
@@ -79,6 +80,15 @@ describe("email-backed account API", () => {
       headers: { cookie: second.cookie },
     });
     expect(blocked.statusCode).toBe(404);
+
+    const walletGate = await app.inject({
+      method: "POST",
+      url: `/api/sponsors/${sponsor.json().id}/contract-invites`,
+      headers: { cookie: first.cookie },
+      payload: contractPayload(creator.json().id),
+    });
+    expect(walletGate.statusCode).toBe(409);
+    expect(walletGate.json().message).toContain("Connect and verify a wallet");
   });
 
   it("searches creator accounts and creates an invite by creator profile id", async () => {
@@ -288,6 +298,7 @@ async function createSponsor(app: Awaited<ReturnType<typeof buildApp>>, cookie: 
     },
   });
   expect(response.statusCode).toBe(201);
+  await linkAccountWallet(app, cookie, sponsorWalletAccount);
   return response.json();
 }
 
@@ -311,6 +322,15 @@ async function createCreator(app: Awaited<ReturnType<typeof buildApp>>, cookie: 
   const linked = await app.inject({ method: "POST", url: `/api/creators/${creator.id}/wallets`, headers: { cookie }, payload: { challengeId: issued.challengeId, message: issued.message, signature, walletClient: "metamask" } });
   expect(linked.statusCode).toBe(201);
   return { ...creator, walletAddress: linked.json().address };
+}
+
+async function linkAccountWallet(app: Awaited<ReturnType<typeof buildApp>>, cookie: string, account: typeof creatorWalletAccount) {
+  const challenge = await app.inject({ method: "POST", url: "/api/auth/wallets/challenges", headers: { cookie }, payload: { address: account.address, chainId: 31337 } });
+  expect(challenge.statusCode).toBe(201);
+  const issued = challenge.json();
+  const signature = await account.signMessage({ message: issued.message });
+  const linked = await app.inject({ method: "POST", url: "/api/auth/wallets", headers: { cookie }, payload: { ...issued, signature, walletClient: "metamask" } });
+  expect(linked.statusCode).toBe(201);
 }
 
 async function connectProfiles(

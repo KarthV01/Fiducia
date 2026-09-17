@@ -11,12 +11,14 @@ export function ContractTable({
   counterparty,
   emptyLabel = "No contracts yet.",
   onAccept,
+  acceptBlocked = false,
 }: {
   contracts: ContractSummary[];
   hrefFor: (contract: ContractSummary) => string;
   counterparty: "creator" | "sponsor";
   emptyLabel?: string;
   onAccept?: (inviteId: string) => void;
+  acceptBlocked?: boolean;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   if (contracts.length === 0) {
@@ -72,7 +74,7 @@ export function ContractTable({
                         ))}
                       </ol>
                     </div>
-                    {action === "accept" && contract.workflow.inviteId && onAccept ? (
+                    {action === "accept" && acceptBlocked ? <button type="button" disabled className="inline-flex h-9 items-center justify-center rounded-[6px] border border-warning-rule bg-warning-soft px-3.5 text-sm font-medium text-warning opacity-80">Wallet required</button> : action === "accept" && contract.workflow.inviteId && onAccept ? (
                       <button type="button" onClick={() => onAccept(contract.workflow.inviteId!)} className="inline-flex h-9 items-center justify-center rounded-[6px] bg-accent px-3.5 text-sm font-medium text-white hover:bg-accent-hover">Accept contract</button>
                     ) : (
                       <Link to={hrefFor(contract)} className="inline-flex h-9 items-center justify-center rounded-[6px] bg-accent px-3.5 text-sm font-medium text-white hover:bg-accent-hover">

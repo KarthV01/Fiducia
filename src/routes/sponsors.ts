@@ -23,6 +23,7 @@ import {
 import { reviewDeliverable } from "../services/deliverableService.js";
 import { areConnected, socialIdentityId } from "../services/networkService.js";
 import { requirePrimaryCreatorWallet } from "../accounts/creatorWallets.js";
+import { hasVerifiedAccountWallet, requireVerifiedAccountWallet } from "../accounts/accountWallets.js";
 
 type RouteDeps = {
   prisma: PrismaClient;
@@ -35,7 +36,7 @@ export async function registerSponsorRoutes(app: FastifyInstance, deps: RouteDep
   app.get<{ Params: { sponsorId: string } }>("/api/sponsors/:sponsorId/dashboard", async (request) => {
     const user = await requireUser(prisma, request);
     const sponsor = await getSponsorProfileForUser(prisma, user.id, request.params.sponsorId);
-    const [agreements, sponsors, creators, invites] = await Promise.all([
+    const [agreements, sponsors, creators, invites, walletConnected] = await Promise.all([
       listAgreementsForBrandWallet(prisma, sponsor.walletAddress),
       prisma.sponsorProfile.findMany({ where: { id: sponsor.id } }),
       prisma.creatorProfile.findMany(),
@@ -44,6 +45,7 @@ export async function registerSponsorRoutes(app: FastifyInstance, deps: RouteDep
         include: { sponsorProfile: true, creatorProfile: true, agreement: { include: agreementInclude } },
         orderBy: { createdAt: "desc" },
       }),
+      hasVerifiedAccountWallet(prisma, user.id),
     ]);
 
     return {
@@ -51,6 +53,7 @@ export async function registerSponsorRoutes(app: FastifyInstance, deps: RouteDep
       totals: buildDashboardTotals(agreements),
       contracts: agreements.map((agreement) => summarizeAgreement(agreement, sponsors, creators)),
       pendingInvites: invites.map(presentInvite),
+      walletConnected,
     };
   });
 
@@ -60,6 +63,7 @@ export async function registerSponsorRoutes(app: FastifyInstance, deps: RouteDep
 
     return {
       sponsor: publicSponsorProfile(sponsor),
+      walletConnected: await hasVerifiedAccountWallet(prisma, user.id),
       metrics: DISCOVERY_METRICS,
       token: {
         ...tokenForChain(deps.chain?.chainId),
@@ -92,6 +96,7 @@ export async function registerSponsorRoutes(app: FastifyInstance, deps: RouteDep
   app.post<{ Params: { sponsorId: string } }>("/api/sponsors/:sponsorId/contract-invites", async (request, reply) => {
     const user = await requireUser(prisma, request);
     const sponsor = await getSponsorProfileForUser(prisma, user.id, request.params.sponsorId);
+    await requireVerifiedAccountWallet(prisma, user.id);
     const input = contractInviteFormSchema.parse(request.body);
     const creator = await getCreatorProfile(prisma, input.creatorProfileId);
     if (!await areConnected(prisma, socialIdentityId("sponsor", sponsor.id), socialIdentityId("creator", creator.id))) {
