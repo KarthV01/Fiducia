@@ -31,7 +31,7 @@ export async function issueEthereumChallenge(
   const message = createSiweMessage({
     address, chainId: input.chainId, domain: appUrl.host, uri: appUrl.origin, version: "1", nonce,
     issuedAt: new Date(), expirationTime: expiresAt,
-    statement: "Sign in to Payouts. This request does not send a transaction or cost gas.",
+    statement: "Sign in to Fiducia. This request does not send a transaction or cost gas.",
   });
   const challenge = await prisma.walletChallenge.create({ data: { purpose: input.purpose, address: address.toLowerCase(), chainId: input.chainId, nonce, messageHash: hash(message), expiresAt, userId: input.userId, profileId: input.profileId } });
   return { challengeId: challenge.id, message, expiresAt: expiresAt.toISOString() };

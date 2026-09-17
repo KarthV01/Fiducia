@@ -1,6 +1,6 @@
-# Payouts web app
+# Fiducia web app
 
-Vite + React UI for the local YTPayouts demo.
+Vite + React UI for the local Fiducia demo.
 
 ```powershell
 npm install

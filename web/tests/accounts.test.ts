@@ -77,7 +77,7 @@ it.each(["sponsor", "creator"] as const)("creates a %s profile and enters its wo
   vi.mocked(api.me).mockResolvedValue({ user }); await mount("/accounts/new");
   await click(`input[value="${role}"]`); await fillInputs(); await click('button[type="submit"]');
   expect(role === "sponsor" ? api.createSponsorProfile : api.createCreatorProfile).toHaveBeenCalledOnce();
-  expect(JSON.parse(localStorage.getItem("ytpayouts.session")!)).toEqual({ role, id: "new" });
+  expect(JSON.parse(localStorage.getItem("fiducia.session")!)).toEqual({ role, id: "new" });
   expect(container.textContent).toContain(role === "sponsor" ? "Sponsor workspace" : "Creator workspace");
 });
 it("retains the creation form when the API rejects it", async () => {

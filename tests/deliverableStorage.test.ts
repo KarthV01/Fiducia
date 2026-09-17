@@ -9,7 +9,7 @@ describe("private deliverable storage", () => {
   afterEach(async () => { if (directory) await rm(directory, { recursive: true, force: true }); });
 
   it("appends resumable chunks, hashes the final file, and serves ranges", async () => {
-    directory = await mkdtemp(join(tmpdir(), "ytpayouts-artifacts-"));
+    directory = await mkdtemp(join(tmpdir(), "fiducia-artifacts-"));
     const storage = new LocalDeliverableStorage(directory);
     expect(await storage.append("abc-123", 0, Buffer.from("hello "))).toBe(6);
     expect(await storage.append("abc-123", 6, Buffer.from("world"))).toBe(11);

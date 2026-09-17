@@ -1,4 +1,4 @@
-const KEY = "ytpayouts.session";
+const KEY = "fiducia.session";
 
 export type Session =
   | { role: "sponsor"; id: string }

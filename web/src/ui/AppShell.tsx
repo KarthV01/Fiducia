@@ -8,6 +8,7 @@ import type { RealtimeEvent } from "../lib/types";
 import { Icon } from "./Icon";
 import { MessagingDock } from "./MessagingDock";
 import { ThemeToggle } from "./ThemeToggle";
+import { BrandMark } from "./BrandMark";
 
 export type NavItem = {
   to: string;
@@ -77,8 +78,7 @@ export function AppShell({
     }}>
       <aside className="flex shrink-0 flex-col border-b border-rule bg-sidebar md:sticky md:top-0 md:h-screen md:w-52 md:border-r md:border-b-0 xl:w-60">
         <div className="flex h-20 items-center gap-3 px-6">
-          <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-accent text-lg font-semibold text-white">p<span className="text-white/70">.</span></span>
-          <span className="text-lg font-semibold tracking-[-0.04em] text-ink">payouts</span>
+          <BrandMark size="sm" withName />
         </div>
         <p className="mb-3 hidden px-6 text-[10px] font-medium uppercase tracking-[0.16em] text-muted md:block">Workspace</p>
         <nav aria-label="Workspace" className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col md:px-4">

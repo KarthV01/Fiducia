@@ -1,6 +1,6 @@
 export type Theme = "dark" | "light";
-export const THEME_KEY = "ytpayouts.theme";
-const THEME_EVENT = "payouts:theme-changed";
+export const THEME_KEY = "fiducia.theme";
+const THEME_EVENT = "fiducia:theme-changed";
 
 export function getTheme(): Theme {
   return document.documentElement.dataset.theme === "light" ? "light" : "dark";

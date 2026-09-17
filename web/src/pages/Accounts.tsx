@@ -9,6 +9,7 @@ import { Banner, Button, ButtonLink, Field, Input, PageHeader } from "../ui/prim
 import { Icon } from "../ui/Icon";
 import { discoverMetaMask, requestMetaMaskAccount, signMetaMaskMessage, walletErrorMessage } from "../lib/evmProvider";
 import { MetaMaskOnboarding } from "../ui/MetaMaskOnboarding";
+import { BrandMark } from "../ui/BrandMark";
 
 export function SignInPage() {
   const { data, error, loading, reload } = useResource("sign-in", () => api.me());
@@ -34,8 +35,8 @@ export function SignInPage() {
 
   if (data?.user) return <Navigate to="/accounts" replace />;
   return <PublicLayout><div className="mx-auto max-w-md px-5 py-16 sm:py-24"><div className="rounded-2xl border border-rule bg-surface p-7 sm:p-9">
-    <span className="mb-6 flex h-11 w-11 items-center justify-center rounded-xl bg-accent-soft text-link"><Icon name="network" width="24" height="24" /></span>
-    <h1 className="text-3xl font-semibold tracking-[-0.04em]">Welcome to Payouts.</h1><p className="mt-3 text-sm leading-relaxed text-muted">Access your existing accounts or start a creator profile with a verified wallet.</p>
+    <span className="mb-6 inline-flex"><BrandMark size="lg" /></span>
+    <h1 className="text-3xl font-semibold tracking-[-0.04em]">Welcome to Fiducia.</h1><p className="mt-3 text-sm leading-relaxed text-muted">Access your existing accounts or start a creator profile with a verified wallet.</p>
     {error ? <div className="mt-5 space-y-2"><Banner>{error}</Banner><Button variant="ghost" onClick={reload}>Try again</Button></div> : null}
     <a href="/api/auth/google/start" className="mt-8 flex h-12 items-center justify-center gap-3 rounded-lg border border-rule bg-canvas font-medium transition-colors hover:bg-accent-soft"><span aria-hidden="true" className="text-lg font-semibold">G</span> Continue with Google</a>
     <div className="my-3 flex items-center gap-3 text-[10px] uppercase tracking-[0.14em] text-muted"><span className="h-px flex-1 bg-rule" />or<span className="h-px flex-1 bg-rule" /></div>
