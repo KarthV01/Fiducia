@@ -10,7 +10,7 @@ const MAX_CHALLENGES_PER_ADDRESS = 10;
 const MAX_VERIFY_ATTEMPTS = 5;
 
 export type EthereumChallenge = { challengeId: string; message: string; expiresAt: string };
-export type WalletChallengePurpose = "sign_in" | "link_creator";
+export type WalletChallengePurpose = "sign_in" | "link_account" | "link_creator";
 
 export async function createEthereumChallenge(prisma: PrismaClient, input: { address: string; chainId: number }): Promise<EthereumChallenge> {
   return issueEthereumChallenge(prisma, { ...input, purpose: "sign_in" });

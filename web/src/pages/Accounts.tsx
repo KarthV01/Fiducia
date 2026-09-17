@@ -63,8 +63,35 @@ export function AccountsPage() {
     <PageHeader title="Your accounts" description="Choose the profile you want to work with today." action={<ButtonLink to="/accounts/new">Create account <span aria-hidden="true" className="ml-2">＋</span></ButtonLink>} />
     {loading ? <p role="status" className="text-muted">Loading your accounts…</p> : null}
     {error ? <div className="space-y-3"><Banner>{error}</Banner><Button variant="secondary" onClick={reload}>Try again</Button></div> : null}
-    {data ? <><p className="mb-8 text-sm text-muted">Signed in as <span className="font-medium text-ink">{data.user.email ?? "MetaMask wallet"}</span></p>{data.sponsors.length || data.creators.length ? <AccountGroups profiles={data} currentSession={currentSession} onSelect={(target) => selectAccount(target, navigate)} /> : <div className="rounded-2xl border border-dashed border-rule p-10 text-center"><span className="mb-4 inline-flex text-link"><Icon name="network" width="32" height="32" /></span><h2 className="text-lg font-medium">Your first partnership starts here.</h2><p className="mx-auto mt-2 mb-6 max-w-sm text-sm text-muted">Create a sponsor profile for your brand, or a creator profile for your work.</p><ButtonLink to="/accounts/new">Create your first account</ButtonLink></div>}</> : null}
+    {data ? <><p className="mb-5 text-sm text-muted">Signed in as <span className="font-medium text-ink">{data.user.email ?? "MetaMask wallet"}</span></p><AccountWalletPanel />{data.sponsors.length || data.creators.length ? <AccountGroups profiles={data} currentSession={currentSession} onSelect={(target) => selectAccount(target, navigate)} /> : <div className="rounded-2xl border border-dashed border-rule p-10 text-center"><span className="mb-4 inline-flex text-link"><Icon name="network" width="32" height="32" /></span><h2 className="text-lg font-medium">Your first partnership starts here.</h2><p className="mx-auto mt-2 mb-6 max-w-sm text-sm text-muted">Create a sponsor profile for your brand, or a creator profile for your work.</p><ButtonLink to="/accounts/new">Create your first account</ButtonLink></div>}</> : null}
     </div></PublicLayout>;
+}
+
+function AccountWalletPanel() {
+  const { data, error, loading, reload } = useResource("account-wallets", () => api.accountWallets());
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const activeWallets = data?.wallets.filter((wallet) => !wallet.revokedAt) ?? [];
+  async function connect() {
+    if (busy) return;
+    setBusy(true); setActionError(null);
+    try {
+      const provider = await discoverMetaMask();
+      if (!provider) { setShowOnboarding(true); return; }
+      const account = await requestMetaMaskAccount(provider);
+      const challenge = await api.accountWalletChallenge(account.address, account.chainId);
+      const signature = await signMetaMaskMessage(provider, account.address, challenge.message);
+      await api.connectAccountWallet({ ...challenge, signature, walletClient: "metamask" });
+      reload();
+    } catch (err) { setActionError(walletErrorMessage(err)); }
+    finally { setBusy(false); }
+  }
+  return <section className={`mb-8 rounded-xl border p-5 ${activeWallets.length ? "border-success-rule bg-success-soft" : "border-warning-rule bg-warning-soft"}`}>
+    <div className="flex flex-wrap items-center justify-between gap-4"><div className="flex items-start gap-3"><span className={`mt-0.5 ${activeWallets.length ? "text-success" : "text-warning"}`}><Icon name="wallet" /></span><div><h2 className="font-medium text-ink">{activeWallets.length ? "Wallet connected" : "Connect a wallet to unlock contracts"}</h2><p className="mt-1 text-sm text-muted">{activeWallets.length ? `${activeWallets.map((wallet) => `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`).join(", ")} can sign in to this account.` : "Networking and messages remain available, but contract drafting and acceptance are blocked until ownership is verified."}</p></div></div><Button variant={activeWallets.length ? "secondary" : "primary"} disabled={busy || loading} onClick={() => void connect()}>{busy ? "Check MetaMask..." : activeWallets.length ? "Connect another" : "Connect MetaMask"}</Button></div>
+    {error || actionError ? <div className="mt-4"><Banner>{actionError ?? error}</Banner></div> : null}
+    <MetaMaskOnboarding open={showOnboarding} onClose={() => setShowOnboarding(false)} onRetry={() => { setShowOnboarding(false); void connect(); }} />
+  </section>;
 }
 
 export function NewAccountPage() {

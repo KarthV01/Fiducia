@@ -18,6 +18,7 @@ export type SponsorProfile = {
 
 export type AuthIdentity = { id: string; provider: "google" | "ethereum"; providerSubject: string; email: string | null; walletAddress: string | null; verifiedAt: string; revokedAt: string | null };
 export type WalletChallenge = { challengeId: string; message: string; expiresAt: string };
+export type AccountWalletConnection = { id: string; address: string; provider: "ethereum"; verifiedAt: string; revokedAt: string | null };
 export type CreatorWalletConnection = { id: string; address: string; source: "metamask" | "legacy_generated" | string; isPrimary: boolean; verifiedAt: string | null; revokedAt: string | null };
 export type WalletConnectionStatus = "missing" | "connecting" | "signing" | "connected" | "error";
 

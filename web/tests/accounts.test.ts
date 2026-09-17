@@ -7,7 +7,7 @@ import { EntryPage } from "../src/pages/Entry";
 import { AccountAccess, AccountsPage, NewAccountPage, SignInPage } from "../src/pages/Accounts";
 import { api } from "../src/lib/api";
 
-vi.mock("../src/lib/api", () => ({ api: { me: vi.fn(), profiles: vi.fn(), logout: vi.fn(), createSponsorProfile: vi.fn(), createCreatorProfile: vi.fn() } }));
+vi.mock("../src/lib/api", () => ({ api: { me: vi.fn(), profiles: vi.fn(), logout: vi.fn(), createSponsorProfile: vi.fn(), createCreatorProfile: vi.fn(), accountWallets: vi.fn(), accountWalletChallenge: vi.fn(), connectAccountWallet: vi.fn() } }));
 const user = { id: "user", email: "member@example.com", name: "Member", avatarUrl: null };
 let root: Root;
 let container: HTMLDivElement;
@@ -23,6 +23,7 @@ beforeEach(() => {
   vi.mocked(api.me).mockResolvedValue({ user: null });
   vi.mocked(api.profiles).mockResolvedValue({ user, sponsors: [], creators: [] });
   vi.mocked(api.logout).mockResolvedValue({ ok: true });
+  vi.mocked(api.accountWallets).mockResolvedValue({ wallets: [] });
   vi.mocked(api.createSponsorProfile).mockResolvedValue({ id: "new" } as never);
   vi.mocked(api.createCreatorProfile).mockResolvedValue({ id: "new" } as never);
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
@@ -63,6 +64,7 @@ it("takes returning Google users to their accounts without inline creation field
   vi.mocked(api.me).mockResolvedValue({ user }); await mount();
   expect(container.textContent).toContain(user.email); expect(container.querySelector("form")).toBeNull();
   expect(container.querySelector('a[href="/accounts/new"]')).not.toBeNull();
+  expect(container.textContent).toContain("Connect a wallet to unlock contracts");
 });
 it("requires authentication before opening account creation", async () => {
   await mount("/accounts/new"); expect(container.textContent).toContain("Continue with Google"); expect(container.querySelector("form")).toBeNull();

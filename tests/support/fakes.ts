@@ -566,7 +566,8 @@ export class FakePrisma {
       return this.authIdentity.create({ data: create });
     },
     findFirst: async ({ where }: { where: { userId?: string; provider?: string; revokedAt?: null } }) => this.authIdentities.find((item) => (!where.userId || item.userId === where.userId) && (!where.provider || item.provider === where.provider) && (where.revokedAt !== null || item.revokedAt === null)) ?? null,
-    count: async ({ where }: { where: { userId?: string; revokedAt?: null; id?: { not: string } } }) => this.authIdentities.filter((item) => (!where.userId || item.userId === where.userId) && (where.revokedAt !== null || item.revokedAt === null) && (!where.id?.not || item.id !== where.id.not)).length,
+    findMany: async ({ where }: { where: { userId?: string; provider?: string } }) => this.authIdentities.filter((item) => (!where.userId || item.userId === where.userId) && (!where.provider || item.provider === where.provider)),
+    count: async ({ where }: { where: { userId?: string; provider?: string; revokedAt?: null; id?: { not: string } } }) => this.authIdentities.filter((item) => (!where.userId || item.userId === where.userId) && (!where.provider || item.provider === where.provider) && (where.revokedAt !== null || item.revokedAt === null) && (!where.id?.not || item.id !== where.id.not)).length,
     update: async ({ where, data }: { where: { id: string }; data: Partial<AuthIdentityRow> }) => {
       const row = this.authIdentities.find((item) => item.id === where.id); if (!row) throw new Error("Auth identity not found"); Object.assign(row, data, { updatedAt: new Date() }); return row;
     },

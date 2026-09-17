@@ -23,6 +23,7 @@ import type {
   MessagingCounts,
   WalletChallenge,
   CreatorWalletConnection,
+  AccountWalletConnection,
 } from "./types";
 
 export class ApiError extends Error {
@@ -68,6 +69,9 @@ export const api = {
   logout: () => request<{ ok: true }>("/api/auth/logout", { method: "POST" }),
   ethereumChallenge: (address: string, chainId: number) => request<WalletChallenge>("/api/auth/ethereum/challenges", { method: "POST", body: JSON.stringify({ address, chainId }) }),
   ethereumSession: (input: { challengeId: string; message: string; signature: string; walletClient: "metamask" }) => request<{ user: AuthUser }>("/api/auth/ethereum/sessions", { method: "POST", body: JSON.stringify(input) }),
+  accountWallets: () => request<{ wallets: AccountWalletConnection[] }>("/api/auth/wallets"),
+  accountWalletChallenge: (address: string, chainId: number) => request<WalletChallenge>("/api/auth/wallets/challenges", { method: "POST", body: JSON.stringify({ address, chainId }) }),
+  connectAccountWallet: (input: { challengeId: string; message: string; signature: string; walletClient: "metamask" }) => request<AccountWalletConnection>("/api/auth/wallets", { method: "POST", body: JSON.stringify(input) }),
   profiles: () => request<ProfilesResponse>("/api/profiles"),
   createSponsorProfile: (input: {
     name: string;
