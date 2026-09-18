@@ -22,7 +22,7 @@ export async function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps) 
   });
 
   app.post("/api/auth/ethereum/sessions", async (request, reply) => {
-    const input = z.object({ challengeId: z.string().min(1).max(128), message: z.string().min(1).max(4_096), signature: z.string().regex(/^0x[0-9a-fA-F]+$/).max(1_024), walletClient: z.literal("metamask") }).parse(request.body);
+    const input = z.object({ challengeId: z.string().min(1).max(128), message: z.string().min(1).max(4_096), signature: z.string().regex(/^0x[0-9a-fA-F]+$/).max(1_024), walletClient: z.enum(["metamask", "walletconnect"]) }).parse(request.body);
     const user = await verifyEthereumSession(prisma, input);
     await createAuthSession(prisma, reply, user.id);
     return { user: publicUser(user) };
@@ -41,7 +41,7 @@ export async function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps) 
 
   app.post("/api/auth/wallets", async (request, reply) => {
     const user = await requireUser(prisma, request);
-    const proof = z.object({ challengeId: z.string().min(1).max(128), message: z.string().min(1).max(4_096), signature: z.string().regex(/^0x[0-9a-fA-F]+$/).max(1_024), walletClient: z.literal("metamask") }).parse(request.body);
+    const proof = z.object({ challengeId: z.string().min(1).max(128), message: z.string().min(1).max(4_096), signature: z.string().regex(/^0x[0-9a-fA-F]+$/).max(1_024), walletClient: z.enum(["metamask", "walletconnect"]) }).parse(request.body);
     return reply.code(201).send(publicAccountWallet(await connectAccountWallet(prisma, user.id, proof)));
   });
 

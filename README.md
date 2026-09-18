@@ -36,4 +36,8 @@ The contract is intentionally generic: it escrows value against a terms hash rat
 
 The goal is to give creators confidence that approved work is backed by reserved funds and give sponsors evidence that releases correspond to real milestones. The repository contains a full-stack MVP with a TypeScript/Fastify API, React workspace, Prisma persistence, Solidity contracts, local-chain support, and Base deployment paths.
 
+## Wallet connections
+
+Fiducia supports MetaMask browser-extension connections and WalletConnect QR/deep-link connections for mobile and other compatible wallets. Create a project at [Reown Dashboard](https://dashboard.reown.com), allowlist the local and deployed origins, set `VITE_WALLETCONNECT_PROJECT_ID` in the root `.env`, and restart the frontend. The project ID is public browser configuration; wallet ownership is still verified with a single-use server-issued SIWE challenge.
+
 Local generated wallets support end-to-end development, but a production release still requires a mature wallet-connection and custody model, hardened monitoring infrastructure, durable object storage, operational key management, dispute handling, and legal review. The project establishes the technical lifecycle for programmable, evidence-backed creator payments.

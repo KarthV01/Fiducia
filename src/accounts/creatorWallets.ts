@@ -3,7 +3,7 @@ import { getAddress } from "viem";
 import { conflict, notFound } from "../http/errors.js";
 import { issueEthereumChallenge, verifyEthereumChallenge } from "./ethereumAuth.js";
 
-type WalletProof = { challengeId: string; message: string; signature: string; walletClient: "metamask" };
+type WalletProof = { challengeId: string; message: string; signature: string; walletClient: "metamask" | "walletconnect" };
 
 export function publicCreatorWallet(wallet: CreatorWalletConnection) {
   return {
@@ -111,7 +111,7 @@ export async function attachWalletIdentityToNewCreator(prisma: PrismaClient, use
   if (!identity?.walletAddress) return creator;
   const address = getAddress(identity.walletAddress);
   await prisma.$transaction(async (tx) => {
-    await tx.creatorWalletConnection.create({ data: { creatorProfileId: creator.id, authIdentityId: identity.id, address, addressKey: address.toLowerCase(), source: "metamask", isPrimary: true, verifiedAt: identity.verifiedAt } });
+    await tx.creatorWalletConnection.create({ data: { creatorProfileId: creator.id, authIdentityId: identity.id, address, addressKey: address.toLowerCase(), source: "external_verified", isPrimary: true, verifiedAt: identity.verifiedAt } });
     await tx.creatorProfile.update({ where: { id: creator.id }, data: { walletAddress: address } });
   });
   return { ...creator, walletAddress: address };

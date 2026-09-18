@@ -5,10 +5,10 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { Root } from "react-dom/client";
 import { CreatorWalletsPage } from "../src/pages/creator/Wallets";
 import { api } from "../src/lib/api";
-import { discoverMetaMask, requestMetaMaskAccount, signMetaMaskMessage } from "../src/lib/evmProvider";
+import { connectWalletConnect, discoverMetaMask, requestWalletAccount, signWalletMessage } from "../src/lib/evmProvider";
 
 vi.mock("../src/lib/api", () => ({ api: { creatorWallets: vi.fn(), creatorWalletChallenge: vi.fn(), connectCreatorWallet: vi.fn(), makeCreatorWalletPrimary: vi.fn(), disconnectCreatorWallet: vi.fn() } }));
-vi.mock("../src/lib/evmProvider", () => ({ discoverMetaMask: vi.fn(), requestMetaMaskAccount: vi.fn(), signMetaMaskMessage: vi.fn(), walletErrorMessage: (error: Error) => error.message }));
+vi.mock("../src/lib/evmProvider", () => ({ connectWalletConnect: vi.fn(), discoverMetaMask: vi.fn(), requestWalletAccount: vi.fn(), signWalletMessage: vi.fn(), walletErrorMessage: (error: Error) => error.message }));
 
 const address = "0x1111111111111111111111111111111111111111";
 const wallet = { id: "wallet-1", address, source: "metamask", isPrimary: false, verifiedAt: "2026-09-13T00:00:00.000Z", revokedAt: null };
@@ -22,10 +22,12 @@ beforeAll(async () => {
 beforeEach(() => {
   vi.clearAllMocks(); container = document.createElement("div"); document.body.append(container); root = createRoot(container);
   vi.mocked(api.creatorWallets).mockResolvedValue({ wallets: [] });
-  vi.mocked(discoverMetaMask).mockResolvedValue({ request: vi.fn() });
-  vi.mocked(requestMetaMaskAccount).mockResolvedValue({ address, chainId: 1 });
+  const provider = { request: vi.fn() };
+  vi.mocked(discoverMetaMask).mockResolvedValue(provider);
+  vi.mocked(connectWalletConnect).mockResolvedValue(provider);
+  vi.mocked(requestWalletAccount).mockResolvedValue({ address, chainId: 1 });
   vi.mocked(api.creatorWalletChallenge).mockResolvedValue({ challengeId: "challenge", message: "sign me", expiresAt: "soon" });
-  vi.mocked(signMetaMaskMessage).mockResolvedValue("0xsigned");
+  vi.mocked(signWalletMessage).mockResolvedValue("0xsigned");
   vi.mocked(api.connectCreatorWallet).mockResolvedValue({ ...wallet, isPrimary: true });
 });
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); });
@@ -35,10 +37,16 @@ async function mount() { await act(async () => root.render(React.createElement(M
 async function clickText(text: string) { const button = [...container.querySelectorAll("button")].find((item) => item.textContent?.includes(text)); expect(button).toBeTruthy(); await act(async () => button!.click()); }
 
 it("connects MetaMask through a server-issued signed challenge", async () => {
-  await mount(); await clickText("Connect MetaMask");
+  await mount(); await clickText("MetaMask extension");
   expect(api.creatorWalletChallenge).toHaveBeenCalledWith("creator-1", address, 1);
-  expect(signMetaMaskMessage).toHaveBeenCalledWith(expect.anything(), address, "sign me");
+  expect(signWalletMessage).toHaveBeenCalledWith(expect.anything(), address, "sign me");
   expect(api.connectCreatorWallet).toHaveBeenCalledWith("creator-1", expect.objectContaining({ challengeId: "challenge", signature: "0xsigned", walletClient: "metamask" }));
+});
+
+it("connects a phone wallet through WalletConnect using the same signed challenge", async () => {
+  await mount(); await clickText("Phone or QR");
+  expect(connectWalletConnect).toHaveBeenCalledOnce();
+  expect(api.connectCreatorWallet).toHaveBeenCalledWith("creator-1", expect.objectContaining({ challengeId: "challenge", signature: "0xsigned", walletClient: "walletconnect" }));
 });
 
 it("can promote and disconnect a verified secondary wallet", async () => {

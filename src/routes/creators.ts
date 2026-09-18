@@ -137,7 +137,7 @@ export async function registerCreatorRoutes(app: FastifyInstance, deps: RouteDep
   app.post<{ Params: { creatorId: string } }>("/api/creators/:creatorId/wallets", async (request, reply) => {
     const user = await requireUser(prisma, request);
     const creator = await getCreatorProfileForUser(prisma, user.id, request.params.creatorId);
-    const proof = z.object({ challengeId: z.string().min(1).max(128), message: z.string().min(1).max(4_096), signature: z.string().regex(/^0x[0-9a-fA-F]+$/).max(1_024), walletClient: z.literal("metamask") }).parse(request.body);
+    const proof = z.object({ challengeId: z.string().min(1).max(128), message: z.string().min(1).max(4_096), signature: z.string().regex(/^0x[0-9a-fA-F]+$/).max(1_024), walletClient: z.enum(["metamask", "walletconnect"]) }).parse(request.body);
     return reply.code(201).send(publicCreatorWallet(await connectCreatorWallet(prisma, user.id, creator, proof)));
   });
 

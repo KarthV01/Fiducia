@@ -57,7 +57,8 @@ it("shows a landing page, not account forms, when signed out", async () => {
 });
 it("uses the existing Google OAuth endpoint on the sign-in page", async () => {
   await mount("/login"); expect(container.querySelector('a[href="/api/auth/google/start"]')?.textContent).toContain("Continue with Google");
-  expect(container.textContent).toContain("Continue with MetaMask");
+  expect(container.textContent).toContain("MetaMask extension");
+  expect(container.textContent).toContain("Phone or QR");
   expect(container.querySelector('input[type="password"]')).toBeNull();
 });
 it("takes returning Google users to their accounts without inline creation fields", async () => {

@@ -7,30 +7,30 @@ import { AccountGroups, selectAccount } from "../ui/AccountSwitcher";
 import { PublicLayout } from "../ui/PublicLayout";
 import { Banner, Button, ButtonLink, Field, Input, PageHeader } from "../ui/primitives";
 import { Icon } from "../ui/Icon";
-import { discoverMetaMask, requestMetaMaskAccount, signMetaMaskMessage, walletErrorMessage } from "../lib/evmProvider";
+import { connectWalletConnect, discoverMetaMask, requestWalletAccount, signWalletMessage, walletConnectIsConfigured, walletErrorMessage, type WalletClient } from "../lib/evmProvider";
 import { MetaMaskOnboarding } from "../ui/MetaMaskOnboarding";
 import { BrandMark } from "../ui/BrandMark";
 
 export function SignInPage() {
   const { data, error, loading, reload } = useResource("sign-in", () => api.me());
   const navigate = useNavigate();
-  const [walletBusy, setWalletBusy] = useState(false);
+  const [walletBusy, setWalletBusy] = useState<WalletClient | null>(null);
   const [walletError, setWalletError] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
-  async function signInWithMetaMask() {
+  async function signInWithWallet(walletClient: WalletClient) {
     if (walletBusy) return;
-    setWalletBusy(true); setWalletError(null);
+    setWalletBusy(walletClient); setWalletError(null);
     try {
-      const provider = await discoverMetaMask();
+      const provider = walletClient === "walletconnect" ? await connectWalletConnect() : await discoverMetaMask();
       if (!provider) { setShowOnboarding(true); return; }
-      const account = await requestMetaMaskAccount(provider);
+      const account = await requestWalletAccount(provider);
       const challenge = await api.ethereumChallenge(account.address, account.chainId);
-      const signature = await signMetaMaskMessage(provider, account.address, challenge.message);
-      await api.ethereumSession({ ...challenge, signature, walletClient: "metamask" });
+      const signature = await signWalletMessage(provider, account.address, challenge.message);
+      await api.ethereumSession({ ...challenge, signature, walletClient });
       navigate("/accounts", { replace: true });
     } catch (err) { setWalletError(walletErrorMessage(err)); }
-    finally { setWalletBusy(false); }
+    finally { setWalletBusy(null); }
   }
 
   if (data?.user) return <Navigate to="/accounts" replace />;
@@ -40,10 +40,10 @@ export function SignInPage() {
     {error ? <div className="mt-5 space-y-2"><Banner>{error}</Banner><Button variant="ghost" onClick={reload}>Try again</Button></div> : null}
     <a href="/api/auth/google/start" className="mt-8 flex h-12 items-center justify-center gap-3 rounded-lg border border-rule bg-canvas font-medium transition-colors hover:bg-accent-soft"><span aria-hidden="true" className="text-lg font-semibold">G</span> Continue with Google</a>
     <div className="my-3 flex items-center gap-3 text-[10px] uppercase tracking-[0.14em] text-muted"><span className="h-px flex-1 bg-rule" />or<span className="h-px flex-1 bg-rule" /></div>
-    <button type="button" disabled={walletBusy} onClick={() => void signInWithMetaMask()} className="flex h-12 w-full items-center justify-center gap-3 rounded-lg bg-accent text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"><Icon name="wallet" /> {walletBusy ? "Check MetaMask..." : "Continue with MetaMask"}</button>
+    <div className="grid gap-3 sm:grid-cols-2"><button type="button" disabled={Boolean(walletBusy)} onClick={() => void signInWithWallet("metamask")} className="flex h-12 w-full items-center justify-center gap-3 rounded-lg bg-accent text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"><Icon name="wallet" /> {walletBusy === "metamask" ? "Check MetaMask..." : "MetaMask extension"}</button><button type="button" disabled={Boolean(walletBusy)} onClick={() => void signInWithWallet("walletconnect")} title={walletConnectIsConfigured() ? "Scan a QR code or open an installed wallet" : "Add VITE_WALLETCONNECT_PROJECT_ID to .env"} className="flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-rule bg-canvas text-sm font-medium text-ink transition-colors hover:bg-accent-soft disabled:opacity-50"><Icon name="wallet" /> {walletBusy === "walletconnect" ? "Opening wallets..." : "Phone or QR"}</button></div>
     {walletError ? <div className="mt-4"><Banner>{walletError}</Banner></div> : null}
-    <p className="mt-4 text-center text-xs leading-relaxed text-muted">{loading ? "Checking your session..." : "Signing is free and never sends a transaction. Existing Google members should sign in with Google and connect their wallet from a creator profile."}</p>
-    </div><p className="mt-6 text-center text-sm text-muted">New here? You will create a profile after signing in.</p></div><MetaMaskOnboarding open={showOnboarding} onClose={() => setShowOnboarding(false)} onRetry={() => { setShowOnboarding(false); void signInWithMetaMask(); }} /></PublicLayout>;
+    <p className="mt-4 text-center text-xs leading-relaxed text-muted">{loading ? "Checking your session..." : "Signing is free and never sends a transaction. Phone or QR opens WalletConnect with mobile and browser wallet choices."}</p>
+    </div><p className="mt-6 text-center text-sm text-muted">New here? You will create a profile after signing in.</p></div><MetaMaskOnboarding open={showOnboarding} onClose={() => setShowOnboarding(false)} onRetry={() => { setShowOnboarding(false); void signInWithWallet("metamask"); }} /></PublicLayout>;
 }
 
 /** A remembered profile ID is not an authenticated session. */
@@ -69,28 +69,28 @@ export function AccountsPage() {
 
 function AccountWalletPanel() {
   const { data, error, loading, reload } = useResource("account-wallets", () => api.accountWallets());
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<WalletClient | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const activeWallets = data?.wallets.filter((wallet) => !wallet.revokedAt) ?? [];
-  async function connect() {
+  async function connect(walletClient: WalletClient) {
     if (busy) return;
-    setBusy(true); setActionError(null);
+    setBusy(walletClient); setActionError(null);
     try {
-      const provider = await discoverMetaMask();
+      const provider = walletClient === "walletconnect" ? await connectWalletConnect() : await discoverMetaMask();
       if (!provider) { setShowOnboarding(true); return; }
-      const account = await requestMetaMaskAccount(provider);
+      const account = await requestWalletAccount(provider);
       const challenge = await api.accountWalletChallenge(account.address, account.chainId);
-      const signature = await signMetaMaskMessage(provider, account.address, challenge.message);
-      await api.connectAccountWallet({ ...challenge, signature, walletClient: "metamask" });
+      const signature = await signWalletMessage(provider, account.address, challenge.message);
+      await api.connectAccountWallet({ ...challenge, signature, walletClient });
       reload();
     } catch (err) { setActionError(walletErrorMessage(err)); }
-    finally { setBusy(false); }
+    finally { setBusy(null); }
   }
   return <section className={`mb-8 rounded-xl border p-5 ${activeWallets.length ? "border-success-rule bg-success-soft" : "border-warning-rule bg-warning-soft"}`}>
-    <div className="flex flex-wrap items-center justify-between gap-4"><div className="flex items-start gap-3"><span className={`mt-0.5 ${activeWallets.length ? "text-success" : "text-warning"}`}><Icon name="wallet" /></span><div><h2 className="font-medium text-ink">{activeWallets.length ? "Wallet connected" : "Connect a wallet to unlock contracts"}</h2><p className="mt-1 text-sm text-muted">{activeWallets.length ? `${activeWallets.map((wallet) => `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`).join(", ")} can sign in to this account.` : "Networking and messages remain available, but contract drafting and acceptance are blocked until ownership is verified."}</p></div></div><Button variant={activeWallets.length ? "secondary" : "primary"} disabled={busy || loading} onClick={() => void connect()}>{busy ? "Check MetaMask..." : activeWallets.length ? "Connect another" : "Connect MetaMask"}</Button></div>
+    <div className="flex flex-wrap items-center justify-between gap-4"><div className="flex items-start gap-3"><span className={`mt-0.5 ${activeWallets.length ? "text-success" : "text-warning"}`}><Icon name="wallet" /></span><div><h2 className="font-medium text-ink">{activeWallets.length ? "Wallet connected" : "Connect a wallet to unlock contracts"}</h2><p className="mt-1 text-sm text-muted">{activeWallets.length ? `${activeWallets.map((wallet) => `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`).join(", ")} can sign in to this account.` : "Networking and messages remain available, but contract drafting and acceptance are blocked until ownership is verified."}</p></div></div><div className="flex flex-wrap gap-2"><Button variant={activeWallets.length ? "secondary" : "primary"} disabled={Boolean(busy) || loading} onClick={() => void connect("metamask")}>{busy === "metamask" ? "Check MetaMask..." : "MetaMask extension"}</Button><Button variant="secondary" disabled={Boolean(busy) || loading} onClick={() => void connect("walletconnect")}>{busy === "walletconnect" ? "Opening wallets..." : "Phone or QR"}</Button></div></div>
     {error || actionError ? <div className="mt-4"><Banner>{actionError ?? error}</Banner></div> : null}
-    <MetaMaskOnboarding open={showOnboarding} onClose={() => setShowOnboarding(false)} onRetry={() => { setShowOnboarding(false); void connect(); }} />
+    <MetaMaskOnboarding open={showOnboarding} onClose={() => setShowOnboarding(false)} onRetry={() => { setShowOnboarding(false); void connect("metamask"); }} />
   </section>;
 }
 

@@ -68,10 +68,10 @@ export const api = {
   me: () => request<{ user: AuthUser | null }>("/api/auth/me"),
   logout: () => request<{ ok: true }>("/api/auth/logout", { method: "POST" }),
   ethereumChallenge: (address: string, chainId: number) => request<WalletChallenge>("/api/auth/ethereum/challenges", { method: "POST", body: JSON.stringify({ address, chainId }) }),
-  ethereumSession: (input: { challengeId: string; message: string; signature: string; walletClient: "metamask" }) => request<{ user: AuthUser }>("/api/auth/ethereum/sessions", { method: "POST", body: JSON.stringify(input) }),
+  ethereumSession: (input: { challengeId: string; message: string; signature: string; walletClient: "metamask" | "walletconnect" }) => request<{ user: AuthUser }>("/api/auth/ethereum/sessions", { method: "POST", body: JSON.stringify(input) }),
   accountWallets: () => request<{ wallets: AccountWalletConnection[] }>("/api/auth/wallets"),
   accountWalletChallenge: (address: string, chainId: number) => request<WalletChallenge>("/api/auth/wallets/challenges", { method: "POST", body: JSON.stringify({ address, chainId }) }),
-  connectAccountWallet: (input: { challengeId: string; message: string; signature: string; walletClient: "metamask" }) => request<AccountWalletConnection>("/api/auth/wallets", { method: "POST", body: JSON.stringify(input) }),
+  connectAccountWallet: (input: { challengeId: string; message: string; signature: string; walletClient: "metamask" | "walletconnect" }) => request<AccountWalletConnection>("/api/auth/wallets", { method: "POST", body: JSON.stringify(input) }),
   profiles: () => request<ProfilesResponse>("/api/profiles"),
   createSponsorProfile: (input: {
     name: string;
@@ -181,7 +181,7 @@ export const api = {
     request<{ invites: ContractInvite[] }>(`/api/creators/${creatorId}/invites`),
   creatorWallets: (creatorId: string) => request<{ wallets: CreatorWalletConnection[] }>(`/api/creators/${creatorId}/wallets`),
   creatorWalletChallenge: (creatorId: string, address: string, chainId: number) => request<WalletChallenge>(`/api/creators/${creatorId}/wallets/challenges`, { method: "POST", body: JSON.stringify({ address, chainId }) }),
-  connectCreatorWallet: (creatorId: string, input: { challengeId: string; message: string; signature: string; walletClient: "metamask" }) => request<CreatorWalletConnection>(`/api/creators/${creatorId}/wallets`, { method: "POST", body: JSON.stringify(input) }),
+  connectCreatorWallet: (creatorId: string, input: { challengeId: string; message: string; signature: string; walletClient: "metamask" | "walletconnect" }) => request<CreatorWalletConnection>(`/api/creators/${creatorId}/wallets`, { method: "POST", body: JSON.stringify(input) }),
   makeCreatorWalletPrimary: (creatorId: string, walletId: string) => request<CreatorWalletConnection>(`/api/creators/${creatorId}/wallets/${walletId}`, { method: "PATCH", body: JSON.stringify({ isPrimary: true }) }),
   disconnectCreatorWallet: (creatorId: string, walletId: string) => request<CreatorWalletConnection>(`/api/creators/${creatorId}/wallets/${walletId}`, { method: "DELETE" }),
   acceptInvite: (creatorId: string, inviteId: string) =>

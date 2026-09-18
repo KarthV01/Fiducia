@@ -3,7 +3,7 @@ import { getAddress } from "viem";
 import { conflict } from "../http/errors.js";
 import { issueEthereumChallenge, verifyEthereumChallenge } from "./ethereumAuth.js";
 
-type WalletProof = { challengeId: string; message: string; signature: string; walletClient: "metamask" };
+type WalletProof = { challengeId: string; message: string; signature: string; walletClient: "metamask" | "walletconnect" };
 
 export function publicAccountWallet(identity: AuthIdentity) {
   return {

@@ -88,7 +88,7 @@ export function NewContractPage() {
   }
 
   if (!data.walletConnected) {
-    return <div className="max-w-2xl"><PageHeader title="Connect a wallet first" description="Contract creation is locked until this Fiducia account has a verified wallet." /><div role="alert" className="rounded-2xl border border-warning-rule bg-warning-soft p-6"><h2 className="text-lg font-semibold text-ink">Wallet verification required</h2><p className="mt-2 text-sm leading-relaxed text-muted">This protects contract identity and prepares the account for future on-chain funding. Networking and messaging remain available.</p><ButtonLink className="mt-5" to="/accounts">Connect MetaMask</ButtonLink></div></div>;
+    return <div className="max-w-2xl"><PageHeader title="Connect a wallet first" description="Contract creation is locked until this Fiducia account has a verified wallet." /><div role="alert" className="rounded-2xl border border-warning-rule bg-warning-soft p-6"><h2 className="text-lg font-semibold text-ink">Wallet verification required</h2><p className="mt-2 text-sm leading-relaxed text-muted">This protects contract identity and prepares the account for future on-chain funding. Networking and messaging remain available.</p><ButtonLink className="mt-5" to="/accounts">Connect wallet</ButtonLink></div></div>;
   }
 
   async function searchCreators() {

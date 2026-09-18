@@ -51,7 +51,7 @@ export function CreatorHomePage() {
           <Banner>{actionError}</Banner>
         </div>
       ) : null}
-      {!data.creator.walletAddress ? <div className="mb-7 flex flex-wrap items-center justify-between gap-5 rounded-xl border border-accent-rule bg-accent-soft p-5"><div className="flex items-start gap-4"><span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface text-link"><Icon name="wallet" /></span><div><h2 className="font-medium text-ink">Connect a payout wallet</h2><p className="mt-1 max-w-2xl text-sm text-muted">Your profile is ready for networking and messages. Verify MetaMask before entering a new contract or receiving future payouts.</p></div></div><ButtonLink to={`/creator/${creatorId}/wallets`}>Set up wallet</ButtonLink></div> : null}
+      {!data.creator.walletAddress ? <div className="mb-7 flex flex-wrap items-center justify-between gap-5 rounded-xl border border-accent-rule bg-accent-soft p-5"><div className="flex items-start gap-4"><span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface text-link"><Icon name="wallet" /></span><div><h2 className="font-medium text-ink">Connect a payout wallet</h2><p className="mt-1 max-w-2xl text-sm text-muted">Your profile is ready for networking and messages. Verify a browser or mobile wallet before entering a new contract or receiving future payouts.</p></div></div><ButtonLink to={`/creator/${creatorId}/wallets`}>Set up wallet</ButtonLink></div> : null}
       <KpiRow
         items={[
           { label: "Earned", value: data.totals.releasedPayoutAmount, money: true },

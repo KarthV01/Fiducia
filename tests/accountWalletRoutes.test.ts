@@ -16,13 +16,13 @@ describe("account wallet linking", () => {
   });
   afterEach(async () => { await app.close(); await prisma.$disconnect(); });
 
-  it("links MetaMask to an existing Google account and lists it", async () => {
+  it("links a WalletConnect wallet to an existing Google account and lists it", async () => {
     const cookie = await googleSession("member@example.com");
     const challenge = await app.inject({ method: "POST", url: "/api/auth/wallets/challenges", headers: { cookie }, payload: { address: wallet.address, chainId: 8453 } });
     expect(challenge.statusCode).toBe(201);
     const issued = challenge.json();
     const signature = await wallet.signMessage({ message: issued.message });
-    const linked = await app.inject({ method: "POST", url: "/api/auth/wallets", headers: { cookie }, payload: { ...issued, signature, walletClient: "metamask" } });
+    const linked = await app.inject({ method: "POST", url: "/api/auth/wallets", headers: { cookie }, payload: { ...issued, signature, walletClient: "walletconnect" } });
     expect(linked.statusCode).toBe(201); expect(linked.json().address).toBe(wallet.address);
     const listed = await app.inject({ method: "GET", url: "/api/auth/wallets", headers: { cookie } });
     expect(listed.statusCode).toBe(200); expect(listed.json().wallets).toHaveLength(1);

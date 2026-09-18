@@ -5,6 +5,22 @@ export type Eip1193Provider = {
   removeListener?(event: "accountsChanged" | "chainChanged", listener: (value: unknown) => void): void;
 };
 
+export type WalletClient = "metamask" | "walletconnect";
+
+type WalletConnectProvider = Eip1193Provider & {
+  session?: unknown;
+  connect(): Promise<void>;
+};
+
+type WalletConnectInitializer = (options: {
+  projectId: string;
+  optionalChains: [number, ...number[]];
+  showQrModal: boolean;
+  methods: string[];
+  events: string[];
+  metadata: { name: string; description: string; url: string; icons: string[] };
+}) => Promise<WalletConnectProvider>;
+
 type ProviderDetail = { info?: { rdns?: string; name?: string }; provider: Eip1193Provider };
 type DiscoveryTarget = EventTarget & { ethereum?: Eip1193Provider };
 
@@ -26,16 +42,59 @@ export async function discoverMetaMask(target: DiscoveryTarget = window as unkno
   });
 }
 
-export async function requestMetaMaskAccount(provider: Eip1193Provider) {
+let walletConnectProvider: Promise<WalletConnectProvider> | null = null;
+
+export function walletConnectIsConfigured() {
+  return Boolean(import.meta.env.VITE_WALLETCONNECT_PROJECT_ID?.trim());
+}
+
+export async function connectWalletConnect(
+  projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID?.trim(),
+  initialize?: WalletConnectInitializer,
+): Promise<Eip1193Provider> {
+  if (!projectId) throw new Error("WalletConnect is not configured yet. Add VITE_WALLETCONNECT_PROJECT_ID to .env and restart the frontend.");
+  const origin = window.location.origin;
+  if (!walletConnectProvider) {
+    walletConnectProvider = (async () => {
+      const init = initialize ?? (async (options) => {
+        const { EthereumProvider } = await import("@walletconnect/ethereum-provider");
+        return EthereumProvider.init(options) as unknown as Promise<WalletConnectProvider>;
+      });
+      return init({
+        projectId,
+        optionalChains: [8453, 84532, 1],
+        showQrModal: true,
+        methods: ["personal_sign"],
+        events: ["accountsChanged", "chainChanged", "disconnect"],
+        metadata: {
+          name: "Fiducia",
+          description: "Professional sponsorship contracts and USDC payouts",
+          url: origin,
+          icons: [`${origin}/favicon.svg`],
+        },
+      });
+    })();
+  }
+  try {
+    const provider = await walletConnectProvider;
+    if (!provider.session) await provider.connect();
+    return provider;
+  } catch (error) {
+    walletConnectProvider = null;
+    throw error;
+  }
+}
+
+export async function requestWalletAccount(provider: Eip1193Provider) {
   const accounts = await provider.request<string[]>({ method: "eth_requestAccounts" });
-  if (!accounts[0]) throw new Error("MetaMask did not return an account. Unlock it and try again.");
+  if (!accounts[0]) throw new Error("The wallet did not return an account. Unlock it and try again.");
   const chainHex = await provider.request<string>({ method: "eth_chainId" });
   const chainId = Number.parseInt(chainHex, 16);
-  if (!Number.isSafeInteger(chainId) || chainId <= 0) throw new Error("MetaMask returned an invalid network.");
+  if (!Number.isSafeInteger(chainId) || chainId <= 0) throw new Error("The wallet returned an invalid network.");
   return { address: accounts[0], chainId };
 }
 
-export async function signMetaMaskMessage(provider: Eip1193Provider, address: string, message: string) {
+export async function signWalletMessage(provider: Eip1193Provider, address: string, message: string) {
   return provider.request<string>({ method: "personal_sign", params: [message, address] });
 }
 
@@ -44,5 +103,5 @@ export function walletErrorMessage(error: unknown) {
   if (candidate?.code === 4001) return "The MetaMask request was canceled. You can try again when ready.";
   if (candidate?.code === -32002) return "MetaMask already has a request waiting. Open the extension to continue.";
   if (typeof navigator !== "undefined" && !navigator.onLine) return "You appear to be offline. Reconnect and try again.";
-  return candidate?.message || "MetaMask could not complete the request. Unlock it and try again.";
+  return candidate?.message || "The wallet could not complete the request. Unlock it and try again.";
 }
