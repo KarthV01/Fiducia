@@ -19,6 +19,7 @@ import { registerRealtimeRoutes } from "./routes/realtime.js";
 import { InMemoryRealtimePublisher, type RealtimePublisher } from "./services/realtimeService.js";
 import { ensureAuthIdentities } from "./accounts/auth.js";
 import { ensureCreatorWalletConnections } from "./accounts/creatorWallets.js";
+import { registerSocialConnectionRoutes } from "./routes/socialConnections.js";
 
 export type AppDependencies = {
   prisma: PrismaClient;
@@ -79,6 +80,7 @@ export async function buildApp(deps: AppDependencies) {
   await app.register(registerCreatorRoutes, deps);
   await app.register(registerArtifactRoutes, deps);
   await app.register(registerPublicationRoutes, deps);
+  await app.register(registerSocialConnectionRoutes, deps);
   await app.register(registerNetworkRoutes, { ...deps, realtime });
   await app.register(registerMessagingRoutes, { ...deps, realtime });
   await app.register(registerRealtimeRoutes, { prisma: deps.prisma, realtime });

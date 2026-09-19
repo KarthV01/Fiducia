@@ -8,37 +8,39 @@ datasource db {
 }
 
 model Agreement {
-  id                    String              @id @default(cuid())
-  title                 String?
+  id                     String   @id @default(cuid())
+  title                  String?
   deliverableDescription String
-  deadline              DateTime
-  measurementWindowDays Int
-  totalCapAmount        String
-  tokenAddress          String?
-  status                String              @default("draft")
-  termsHash             String?
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
+  deadline               DateTime
+  measurementWindowDays  Int
+  totalCapAmount         String
+  tokenAddress           String?
+  status                 String   @default("draft")
+  termsHash              String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
-  participants          Participant[]
-  metrics               Metric[]
-  payouts               Payout[]
-  observations          MetricObservation[]
-  blockchainRecord      BlockchainRecord?
-  contractInvite        ContractInvite?
+  participants           Participant[]
+  metrics                Metric[]
+  payouts                Payout[]
+  observations           MetricObservation[]
+  blockchainRecord       BlockchainRecord?
+  contractInvite         ContractInvite?
   deliverableSubmissions DeliverableSubmission[]
   uploadSessions         UploadSession[]
   publications           Publication[]
   performanceRules       PerformanceRule[]
   chainOperations        ChainOperation[]
+  agreementContents      AgreementContent[]
+  socialSyncRuns         SocialSyncRun[]
 
-  basePayoutAmount       String?
-  performancePoolAmount  String?
-  promoRequirements      String?
-  finalCutRequirements   String?
+  basePayoutAmount        String?
+  performancePoolAmount   String?
+  promoRequirements       String?
+  finalCutRequirements    String?
   publicationRequirements String?
-  publicationDeadline    DateTime?
-  retentionDays          Int                  @default(7)
+  publicationDeadline     DateTime?
+  retentionDays           Int       @default(7)
 }
 
 model UploadSession {
@@ -56,163 +58,163 @@ model UploadSession {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  agreement        Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
-  submission       DeliverableSubmission?
+  agreement  Agreement              @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  submission DeliverableSubmission?
 
   @@index([agreementId, status])
 }
 
 model DeliverableSubmission {
-  id               String                @id
+  id               String   @id
   agreementId      String
   creatorProfileId String
   version          Int
-  status           String                @default("submitted")
+  status           String   @default("submitted")
   proofUrl         String?
-  checkpoint       String                @default("promo")
-  uploadId         String?               @unique
+  checkpoint       String   @default("promo")
+  uploadId         String?  @unique
   notes            String?
   contentHash      String
-  submittedAt      DateTime              @default(now())
-  isLate           Boolean               @default(false)
+  submittedAt      DateTime @default(now())
+  isLate           Boolean  @default(false)
   approvedTxHash   String?
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  agreement        Agreement             @relation(fields: [agreementId], references: [id], onDelete: Cascade)
-  upload            UploadSession?        @relation(fields: [uploadId], references: [id], onDelete: Restrict)
-  evidence         DeliverableEvidence[]
-  reviews          DeliverableReview[]
+  agreement Agreement             @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  upload    UploadSession?        @relation(fields: [uploadId], references: [id], onDelete: Restrict)
+  evidence  DeliverableEvidence[]
+  reviews   DeliverableReview[]
 
   @@unique([agreementId, checkpoint, version])
   @@index([agreementId, status])
 }
 
 model Publication {
-  id               String   @id @default(cuid())
-  agreementId      String
-  method           String
-  status           String   @default("pending")
-  youtubeVideoId   String?
-  youtubeUrl       String?
-  channelId        String?
-  artifactHash     String
-  approvedArtifactId String
-  idempotencyKey   String   @unique
-  fingerprintScore Float?
-  fingerprintVersion String?
-  visibility       String?
-  viewCount        String?
-  consecutiveConfirmations Int @default(0)
-  requirementsCompliant Boolean?
-  publishedAt      DateTime?
-  verifiedAt       DateTime?
-  retentionStartedAt DateTime?
-  measurementEndsAt DateTime?
-  lastCheckedAt    DateTime?
-  failureReason    String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                       String    @id @default(cuid())
+  agreementId              String
+  method                   String
+  status                   String    @default("pending")
+  youtubeVideoId           String?
+  youtubeUrl               String?
+  channelId                String?
+  artifactHash             String
+  approvedArtifactId       String
+  idempotencyKey           String    @unique
+  fingerprintScore         Float?
+  fingerprintVersion       String?
+  visibility               String?
+  viewCount                String?
+  consecutiveConfirmations Int       @default(0)
+  requirementsCompliant    Boolean?
+  publishedAt              DateTime?
+  verifiedAt               DateTime?
+  retentionStartedAt       DateTime?
+  measurementEndsAt        DateTime?
+  lastCheckedAt            DateTime?
+  failureReason            String?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 
-  agreement        Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  agreement Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
 
   @@index([agreementId, status])
 }
 
 model YouTubeConnection {
-  id                    String   @id @default(cuid())
-  creatorProfileId      String   @unique
+  id                    String    @id @default(cuid())
+  creatorProfileId      String    @unique
   channelId             String?
   encryptedRefreshToken String?
-  oauthState            String   @unique
+  oauthState            String    @unique
   oauthStateExpiresAt   DateTime
   connectedAt           DateTime?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   creatorProfile CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
 }
 
 model PerformanceRule {
-  id                    String   @id @default(cuid())
-  agreementId           String
-  kind                  String
-  threshold             String?
-  amount                String?
-  startsAtViews         String?
+  id                     String   @id @default(cuid())
+  agreementId            String
+  kind                   String
+  threshold              String?
+  amount                 String?
+  startsAtViews          String?
   amountPerThousandViews String?
-  maximumAmount         String?
-  releasedAmount        String   @default("0")
-  createdAt             DateTime @default(now())
+  maximumAmount          String?
+  releasedAmount         String   @default("0")
+  createdAt              DateTime @default(now())
 
-  agreement             Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  agreement Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
 }
 
 model ChainOperation {
-  id          String   @id
-  agreementId String
-  kind        String
-  idempotencyKey String @unique
-  status      String   @default("pending")
-  payloadJson String
-  txHash      String?
-  error       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id
+  agreementId    String
+  kind           String
+  idempotencyKey String   @unique
+  status         String   @default("pending")
+  payloadJson    String
+  txHash         String?
+  error          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  agreement   Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  agreement Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
 
   @@index([agreementId, status])
 }
 
 model DeliverableEvidence {
-  id           String                @id @default(cuid())
+  id           String   @id @default(cuid())
   submissionId String
   url          String
   label        String?
   position     Int
-  createdAt    DateTime              @default(now())
+  createdAt    DateTime @default(now())
 
-  submission   DeliverableSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  submission DeliverableSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
 
   @@unique([submissionId, position])
 }
 
 model DeliverableReview {
-  id               String                @id @default(cuid())
-  submissionId     String
-  sponsorProfileId String
-  decision         String
-  comment          String?
+  id                 String   @id @default(cuid())
+  submissionId       String
+  sponsorProfileId   String
+  decision           String
+  comment            String?
   failedCriteriaJson String?
-  approvalTxHash   String?
-  reviewedAt       DateTime              @default(now())
+  approvalTxHash     String?
+  reviewedAt         DateTime @default(now())
 
-  submission       DeliverableSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  submission DeliverableSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
 
   @@index([submissionId, reviewedAt])
 }
 
 model Participant {
-  id            String    @id @default(cuid())
+  id            String   @id @default(cuid())
   agreementId   String
   role          String
   walletAddress String
   handle        String?
   displayName   String?
-  createdAt     DateTime  @default(now())
+  createdAt     DateTime @default(now())
 
-  agreement     Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  agreement Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
 
   @@unique([agreementId, role])
 }
 
 model Metric {
-  id           String              @id @default(cuid())
-  agreementId  String
-  key          String
-  label        String?
-  createdAt    DateTime            @default(now())
+  id          String   @id @default(cuid())
+  agreementId String
+  key         String
+  label       String?
+  createdAt   DateTime @default(now())
 
   agreement    Agreement           @relation(fields: [agreementId], references: [id], onDelete: Cascade)
   conditions   Condition[]
@@ -222,47 +224,65 @@ model Metric {
 }
 
 model Condition {
-  id        String  @id @default(cuid())
-  payoutId  String  @unique
+  id        String @id @default(cuid())
+  payoutId  String @unique
   metricId  String
   operator  String
   threshold String
 
-  payout    Payout  @relation(fields: [payoutId], references: [id], onDelete: Cascade)
-  metric    Metric  @relation(fields: [metricId], references: [id], onDelete: Restrict)
+  payout Payout @relation(fields: [payoutId], references: [id], onDelete: Cascade)
+  metric Metric @relation(fields: [metricId], references: [id], onDelete: Restrict)
 }
 
 model Payout {
-  id             String     @id @default(cuid())
+  id             String    @id @default(cuid())
   agreementId    String
   kind           String
   label          String
   amount         String
-  status         String     @default("pending")
+  status         String    @default("pending")
   releasedAt     DateTime?
   releasedTxHash String?
-  createdAt      DateTime   @default(now())
+  createdAt      DateTime  @default(now())
 
-  agreement      Agreement  @relation(fields: [agreementId], references: [id], onDelete: Cascade)
-  condition      Condition?
+  agreement Agreement  @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  condition Condition?
 }
 
 model MetricObservation {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   agreementId String
   metricId    String
   value       String
   source      String
-  observedAt  DateTime  @default(now())
-  createdAt   DateTime  @default(now())
+  observedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
 
-  agreement   Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
-  metric      Metric    @relation(fields: [metricId], references: [id], onDelete: Restrict)
+  agreementContentId String?
+  socialConnectionId String?
+  providerField      String?
+  sourceEndpoint     String?
+  sourceClass        String?
+  apiVersion         String?
+  intervalStart      DateTime?
+  intervalEnd        DateTime?
+  ingestedAt         DateTime  @default(now())
+  evidenceHash       String?
+  evidenceJson       String?
+  idempotencyKey     String?   @unique
+
+  agreement        Agreement         @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  metric           Metric            @relation(fields: [metricId], references: [id], onDelete: Restrict)
+  agreementContent AgreementContent? @relation(fields: [agreementContentId], references: [id], onDelete: SetNull)
+  socialConnection SocialConnection? @relation(fields: [socialConnectionId], references: [id], onDelete: SetNull)
+
+  @@index([agreementId, observedAt])
+  @@index([agreementContentId, metricId, observedAt])
 }
 
 model BlockchainRecord {
-  id             String    @id @default(cuid())
-  agreementId    String    @unique
+  id             String   @id @default(cuid())
+  agreementId    String   @unique
   chainId        Int
   escrowAddress  String
   agreementKey   String
@@ -270,43 +290,44 @@ model BlockchainRecord {
   totalCapAmount String
   termsHash      String
   createTxHash   String
-  createdAt      DateTime  @default(now())
+  createdAt      DateTime @default(now())
 
-  agreement      Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  agreement Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
 }
 
 model User {
-  id             String           @id @default(cuid())
-  email          String?          @unique
-  googleSub      String?          @unique
-  name           String?
-  avatarUrl      String?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  id        String   @id @default(cuid())
+  email     String?  @unique
+  googleSub String?  @unique
+  name      String?
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  sessions       AuthSession[]
-  sponsors       SponsorProfile[]
-  creators       CreatorProfile[]
+  sessions         AuthSession[]
+  sponsors         SponsorProfile[]
+  creators         CreatorProfile[]
   socialIdentities SocialIdentity[]
-  authIdentities  AuthIdentity[]
+  authIdentities   AuthIdentity[]
   walletChallenges WalletChallenge[]
+  oauthAttempts    OAuthAttempt[]
 }
 
 model AuthIdentity {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   userId          String
   provider        String
   providerSubject String
   email           String?
-  walletAddress   String?  @unique
+  walletAddress   String?   @unique
   lastChainId     Int?
-  verifiedAt      DateTime @default(now())
+  verifiedAt      DateTime  @default(now())
   revokedAt       DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  creatorWallets  CreatorWalletConnection[]
+  user           User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creatorWallets CreatorWalletConnection[]
 
   @@unique([provider, providerSubject])
   @@index([userId, provider, revokedAt])
@@ -326,7 +347,7 @@ model WalletChallenge {
   attempts    Int       @default(0)
   createdAt   DateTime  @default(now())
 
-  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([address, createdAt])
   @@index([expiresAt, usedAt])
@@ -339,46 +360,177 @@ model AuthSession {
   expiresAt DateTime
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model SponsorProfile {
-  id                  String           @id @default(cuid())
+  id                  String   @id @default(cuid())
   userId              String
   name                String
-  handle              String           @unique
-  walletAddress       String           @unique
+  handle              String   @unique
+  walletAddress       String   @unique
   industry            String
   websiteUrl          String?
   logoUrl             String?
-  monthlyBudgetAmount String           @default("0")
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
-
-  user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  contractInvites     ContractInvite[]
-  socialIdentity      SocialIdentity?
-}
-
-model CreatorProfile {
-  id              String           @id @default(cuid())
-  userId          String
-  handle          String           @unique
-  displayName     String
-  walletAddress   String?
-  channelUrl      String?
-  category        String
-  averageViews    Int              @default(0)
-  audience        String?
-  avatarUrl       String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  monthlyBudgetAmount String   @default("0")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   contractInvites ContractInvite[]
+  socialIdentity  SocialIdentity?
+}
+
+model CreatorProfile {
+  id            String   @id @default(cuid())
+  userId        String
+  handle        String   @unique
+  displayName   String
+  walletAddress String?
+  channelUrl    String?
+  category      String
+  averageViews  Int      @default(0)
+  audience      String?
+  avatarUrl     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user              User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contractInvites   ContractInvite[]
   youtubeConnection YouTubeConnection?
   socialIdentity    SocialIdentity?
   walletConnections CreatorWalletConnection[]
+  socialConnections SocialConnection[]
+  oauthAttempts     OAuthAttempt[]
+  agreementContents AgreementContent[]
+}
+
+model SocialConnection {
+  id                    String    @id @default(cuid())
+  creatorProfileId      String
+  provider              String
+  providerAccountId     String
+  username              String?
+  displayName           String?
+  status                String    @default("active")
+  grantedScopesJson     String    @default("[]")
+  capabilitiesJson      String    @default("[]")
+  encryptedAccessToken  String?
+  encryptedRefreshToken String?
+  accessTokenExpiresAt  DateTime?
+  tokenKeyId            String?
+  connectedAt           DateTime  @default(now())
+  lastRefreshedAt       DateTime?
+  lastSyncedAt          DateTime?
+  revokedAt             DateTime?
+  errorCode             String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  creatorProfile CreatorProfile      @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  contents       SocialContent[]
+  observations   MetricObservation[]
+  syncRuns       SocialSyncRun[]
+
+  @@unique([creatorProfileId, provider, providerAccountId])
+  @@index([creatorProfileId, provider, status])
+}
+
+model OAuthAttempt {
+  id                    String    @id @default(cuid())
+  userId                String
+  creatorProfileId      String
+  provider              String
+  stateHash             String    @unique
+  requestedScopesJson   String
+  encryptedPkceVerifier String
+  returnPath            String?
+  expiresAt             DateTime
+  consumedAt            DateTime?
+  createdAt             DateTime  @default(now())
+
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creatorProfile CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+
+  @@index([creatorProfileId, provider, expiresAt])
+}
+
+model SocialContent {
+  id                 String    @id @default(cuid())
+  socialConnectionId String
+  provider           String
+  providerContentId  String
+  canonicalUrl       String?
+  contentType        String?
+  title              String?
+  description        String?
+  visibility         String?
+  publishedAt        DateTime?
+  rawFingerprint     String?
+  lastSeenAt         DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  socialConnection  SocialConnection   @relation(fields: [socialConnectionId], references: [id], onDelete: Cascade)
+  agreementContents AgreementContent[]
+
+  @@unique([provider, providerContentId])
+  @@index([socialConnectionId, publishedAt])
+}
+
+model AgreementContent {
+  id                       String    @id @default(cuid())
+  agreementId              String
+  creatorProfileId         String
+  socialContentId          String?
+  provider                 String
+  status                   String    @default("approved")
+  publishMode              String?
+  approvedArtifactId       String
+  artifactHash             String
+  requirementsJson         String    @default("{}")
+  measurementSpecJson      String    @default("{}")
+  verificationEvidenceHash String?
+  verifiedAt               DateTime?
+  measurementStartsAt      DateTime?
+  measurementEndsAt        DateTime?
+  retentionEndsAt          DateTime?
+  idempotencyKey           String    @unique
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  agreement      Agreement           @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  creatorProfile CreatorProfile      @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  socialContent  SocialContent?      @relation(fields: [socialContentId], references: [id], onDelete: SetNull)
+  observations   MetricObservation[]
+
+  @@index([agreementId, provider, status])
+  @@index([creatorProfileId, provider])
+}
+
+model SocialSyncRun {
+  id                 String    @id @default(cuid())
+  agreementId        String?
+  socialConnectionId String
+  resource           String
+  cursor             String?
+  status             String    @default("running")
+  attempt            Int       @default(1)
+  leaseUntil         DateTime?
+  retryAt            DateTime?
+  rateLimitJson      String?
+  providerRequestId  String?
+  resultCount        Int       @default(0)
+  errorCategory      String?
+  errorMessage       String?
+  startedAt          DateTime  @default(now())
+  completedAt        DateTime?
+
+  agreement        Agreement?       @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  socialConnection SocialConnection @relation(fields: [socialConnectionId], references: [id], onDelete: Cascade)
+
+  @@index([socialConnectionId, status, retryAt])
+  @@index([agreementId, startedAt])
 }
 
 model CreatorWalletConnection {
@@ -394,8 +546,8 @@ model CreatorWalletConnection {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  creatorProfile   CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
-  authIdentity     AuthIdentity?   @relation(fields: [authIdentityId], references: [id], onDelete: SetNull)
+  creatorProfile CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  authIdentity   AuthIdentity?  @relation(fields: [authIdentityId], references: [id], onDelete: SetNull)
 
   @@unique([creatorProfileId, addressKey])
   @@index([creatorProfileId, isPrimary, revokedAt])
@@ -403,35 +555,35 @@ model CreatorWalletConnection {
 }
 
 model SocialIdentity {
-  id                    String   @id @default(cuid())
-  userId                String
-  profileType           String
-  sponsorProfileId      String?  @unique
-  creatorProfileId      String?  @unique
-  handle                String
-  displayName           String
-  avatarUrl             String?
-  descriptor            String?
-  searchText            String
-  readReceiptsEnabled   Boolean  @default(true)
-  typingIndicatorsEnabled Boolean @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                      String   @id @default(cuid())
+  userId                  String
+  profileType             String
+  sponsorProfileId        String?  @unique
+  creatorProfileId        String?  @unique
+  handle                  String
+  displayName             String
+  avatarUrl               String?
+  descriptor              String?
+  searchText              String
+  readReceiptsEnabled     Boolean  @default(true)
+  typingIndicatorsEnabled Boolean  @default(true)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
-  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sponsorProfile        SponsorProfile? @relation(fields: [sponsorProfileId], references: [id], onDelete: Cascade)
-  creatorProfile        CreatorProfile? @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
-  requestedConnections  Connection[]    @relation("ConnectionRequester")
-  receivedConnections   Connection[]    @relation("ConnectionRecipient")
-  blocksCreated         ProfileBlock[]  @relation("Blocker")
-  blocksReceived        ProfileBlock[]  @relation("Blocked")
-  conversationsCreated  Conversation[]  @relation("ConversationCreator")
+  user                    User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sponsorProfile          SponsorProfile?           @relation(fields: [sponsorProfileId], references: [id], onDelete: Cascade)
+  creatorProfile          CreatorProfile?           @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  requestedConnections    Connection[]              @relation("ConnectionRequester")
+  receivedConnections     Connection[]              @relation("ConnectionRecipient")
+  blocksCreated           ProfileBlock[]            @relation("Blocker")
+  blocksReceived          ProfileBlock[]            @relation("Blocked")
+  conversationsCreated    Conversation[]            @relation("ConversationCreator")
   conversationMemberships ConversationParticipant[]
-  messagesSent          Message[]
-  messageReactions      MessageReaction[]
-  messageAttachments    MessageAttachment[]
-  reportsFiled          ProfileReport[] @relation("ReportAuthor")
-  reportsReceived       ProfileReport[] @relation("ReportTarget")
+  messagesSent            Message[]
+  messageReactions        MessageReaction[]
+  messageAttachments      MessageAttachment[]
+  reportsFiled            ProfileReport[]           @relation("ReportAuthor")
+  reportsReceived         ProfileReport[]           @relation("ReportTarget")
 
   @@unique([profileType, handle])
   @@index([userId])
@@ -440,18 +592,18 @@ model SocialIdentity {
 }
 
 model Connection {
-  id          String   @id @default(cuid())
-  pairKey     String   @unique
+  id          String    @id @default(cuid())
+  pairKey     String    @unique
   requesterId String
   recipientId String
-  status      String   @default("pending")
+  status      String    @default("pending")
   note        String?
   respondedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  requester   SocialIdentity @relation("ConnectionRequester", fields: [requesterId], references: [id], onDelete: Cascade)
-  recipient   SocialIdentity @relation("ConnectionRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  requester SocialIdentity @relation("ConnectionRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  recipient SocialIdentity @relation("ConnectionRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
 
   @@index([requesterId, status, updatedAt])
   @@index([recipientId, status, updatedAt])
@@ -463,127 +615,127 @@ model ProfileBlock {
   blockedId String
   createdAt DateTime @default(now())
 
-  blocker   SocialIdentity @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
-  blocked   SocialIdentity @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  blocker SocialIdentity @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked SocialIdentity @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
 
   @@unique([blockerId, blockedId])
   @@index([blockedId])
 }
 
 model Conversation {
-  id              String   @id @default(cuid())
-  type            String
-  title           String?
-  directPairKey   String?  @unique
-  createdById     String
-  lastMessageAt   DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            String    @id @default(cuid())
+  type          String
+  title         String?
+  directPairKey String?   @unique
+  createdById   String
+  lastMessageAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  createdBy       SocialIdentity @relation("ConversationCreator", fields: [createdById], references: [id], onDelete: Restrict)
-  participants    ConversationParticipant[]
-  messages        Message[]
-  attachments     MessageAttachment[]
+  createdBy    SocialIdentity            @relation("ConversationCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  participants ConversationParticipant[]
+  messages     Message[]
+  attachments  MessageAttachment[]
 
   @@index([lastMessageAt])
 }
 
 model ConversationParticipant {
-  id              String   @id @default(cuid())
-  conversationId  String
-  identityId      String
-  role            String   @default("member")
-  joinedAt        DateTime @default(now())
-  leftAt          DateTime?
-  lastReadAt      DateTime?
-  archivedAt      DateTime?
-  starredAt       DateTime?
-  mutedUntil      DateTime?
-  draftText       String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String    @id @default(cuid())
+  conversationId String
+  identityId     String
+  role           String    @default("member")
+  joinedAt       DateTime  @default(now())
+  leftAt         DateTime?
+  lastReadAt     DateTime?
+  archivedAt     DateTime?
+  starredAt      DateTime?
+  mutedUntil     DateTime?
+  draftText      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  conversation    Conversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  identity        SocialIdentity @relation(fields: [identityId], references: [id], onDelete: Cascade)
+  conversation Conversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  identity     SocialIdentity @relation(fields: [identityId], references: [id], onDelete: Cascade)
 
   @@unique([conversationId, identityId])
   @@index([identityId, leftAt, archivedAt])
 }
 
 model Message {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   conversationId  String
   senderId        String
   clientMessageId String
-  type            String   @default("user")
+  type            String    @default("user")
   body            String?
   replyToId       String?
   editedAt        DateTime?
   deletedAt       DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender          SocialIdentity @relation(fields: [senderId], references: [id], onDelete: Restrict)
-  replyTo         Message? @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
-  replies         Message[] @relation("MessageReplies")
-  reactions       MessageReaction[]
-  attachments     MessageAttachment[]
+  conversation Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       SocialIdentity      @relation(fields: [senderId], references: [id], onDelete: Restrict)
+  replyTo      Message?            @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies      Message[]           @relation("MessageReplies")
+  reactions    MessageReaction[]
+  attachments  MessageAttachment[]
 
   @@unique([senderId, clientMessageId])
   @@index([conversationId, createdAt, id])
 }
 
 model MessageReaction {
-  id          String   @id @default(cuid())
-  messageId   String
-  identityId  String
-  emoji       String
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  messageId  String
+  identityId String
+  emoji      String
+  createdAt  DateTime @default(now())
 
-  message     Message        @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  identity    SocialIdentity @relation(fields: [identityId], references: [id], onDelete: Cascade)
+  message  Message        @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  identity SocialIdentity @relation(fields: [identityId], references: [id], onDelete: Cascade)
 
   @@unique([messageId, identityId, emoji])
   @@index([messageId])
 }
 
 model MessageAttachment {
-  id              String   @id
-  conversationId  String
-  uploaderId      String
-  messageId       String?
-  status          String   @default("uploading")
-  fileName        String
-  mimeType        String
-  totalSize       Int
-  receivedSize    Int      @default(0)
-  storageKey      String
-  sha256          String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id
+  conversationId String
+  uploaderId     String
+  messageId      String?
+  status         String   @default("uploading")
+  fileName       String
+  mimeType       String
+  totalSize      Int
+  receivedSize   Int      @default(0)
+  storageKey     String
+  sha256         String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  conversation    Conversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  uploader        SocialIdentity @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
-  message         Message?       @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  conversation Conversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  uploader     SocialIdentity @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+  message      Message?       @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, status])
   @@index([messageId])
 }
 
 model ProfileReport {
-  id          String   @id @default(cuid())
-  reporterId  String
-  targetId    String
-  messageId   String?
-  reason      String
-  details     String?
-  status      String   @default("open")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  reporterId String
+  targetId   String
+  messageId  String?
+  reason     String
+  details    String?
+  status     String   @default("open")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  reporter    SocialIdentity @relation("ReportAuthor", fields: [reporterId], references: [id], onDelete: Cascade)
-  target      SocialIdentity @relation("ReportTarget", fields: [targetId], references: [id], onDelete: Cascade)
+  reporter SocialIdentity @relation("ReportAuthor", fields: [reporterId], references: [id], onDelete: Cascade)
+  target   SocialIdentity @relation("ReportTarget", fields: [targetId], references: [id], onDelete: Cascade)
 
   @@index([reporterId, createdAt])
   @@index([targetId, status])
@@ -602,18 +754,18 @@ model ProfileWallet {
 }
 
 model ContractInvite {
-  id               String         @id @default(cuid())
+  id               String    @id @default(cuid())
   sponsorProfileId String
   creatorProfileId String
-  agreementId      String         @unique
-  status           String         @default("pending")
+  agreementId      String    @unique
+  status           String    @default("pending")
   acceptedAt       DateTime?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  sponsorProfile   SponsorProfile @relation(fields: [sponsorProfileId], references: [id], onDelete: Cascade)
-  creatorProfile   CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
-  agreement        Agreement      @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  sponsorProfile SponsorProfile @relation(fields: [sponsorProfileId], references: [id], onDelete: Cascade)
+  creatorProfile CreatorProfile @relation(fields: [creatorProfileId], references: [id], onDelete: Cascade)
+  agreement      Agreement      @relation(fields: [agreementId], references: [id], onDelete: Cascade)
 }
 
 // Legacy local demo data is retained so additive schema updates never drop it.
