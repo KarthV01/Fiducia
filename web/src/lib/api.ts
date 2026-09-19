@@ -24,6 +24,9 @@ import type {
   WalletChallenge,
   CreatorWalletConnection,
   AccountWalletConnection,
+  SocialConnection,
+  SocialContent,
+  SocialProvider,
 } from "./types";
 
 export class ApiError extends Error {
@@ -184,6 +187,11 @@ export const api = {
   connectCreatorWallet: (creatorId: string, input: { challengeId: string; message: string; signature: string; walletClient: "metamask" | "walletconnect" }) => request<CreatorWalletConnection>(`/api/creators/${creatorId}/wallets`, { method: "POST", body: JSON.stringify(input) }),
   makeCreatorWalletPrimary: (creatorId: string, walletId: string) => request<CreatorWalletConnection>(`/api/creators/${creatorId}/wallets/${walletId}`, { method: "PATCH", body: JSON.stringify({ isPrimary: true }) }),
   disconnectCreatorWallet: (creatorId: string, walletId: string) => request<CreatorWalletConnection>(`/api/creators/${creatorId}/wallets/${walletId}`, { method: "DELETE" }),
+  socialConnections: (creatorId: string) => request<{ connections: SocialConnection[] }>(`/api/creators/${creatorId}/social-connections`),
+  startSocialConnection: (creatorId: string, provider: SocialProvider, returnPath: string) => request<{ authorizationUrl: string }>(`/api/creators/${creatorId}/social-connections/${provider}/start`, { method: "POST", body: JSON.stringify({ returnPath }) }),
+  refreshSocialConnection: (creatorId: string, connectionId: string) => request<SocialConnection>(`/api/creators/${creatorId}/social-connections/${connectionId}/refresh`, { method: "POST" }),
+  disconnectSocialConnection: (creatorId: string, connectionId: string) => request<SocialConnection>(`/api/creators/${creatorId}/social-connections/${connectionId}`, { method: "DELETE" }),
+  socialContent: (creatorId: string, connectionId: string, cursor?: string) => request<{ items: SocialContent[]; cursor?: string }>(`/api/creators/${creatorId}/social-connections/${connectionId}/content${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`),
   acceptInvite: (creatorId: string, inviteId: string) =>
     request<AcceptInviteResult>(`/api/creators/${creatorId}/invites/${inviteId}/accept`, { method: "POST" }),
   connectYouTube: (creatorId: string, agreementId: string) => request<{ authorizationUrl: string }>(`/api/creators/${creatorId}/contracts/${agreementId}/youtube/connect`, { method: "POST" }),

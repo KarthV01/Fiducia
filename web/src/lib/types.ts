@@ -21,6 +21,34 @@ export type WalletChallenge = { challengeId: string; message: string; expiresAt:
 export type AccountWalletConnection = { id: string; address: string; provider: "ethereum"; verifiedAt: string; revokedAt: string | null };
 export type CreatorWalletConnection = { id: string; address: string; source: "metamask" | "legacy_generated" | string; isPrimary: boolean; verifiedAt: string | null; revokedAt: string | null };
 export type WalletConnectionStatus = "missing" | "connecting" | "signing" | "connected" | "error";
+export type SocialProvider = "instagram" | "x" | "tiktok" | "youtube";
+export type SocialConnection = {
+  id: string;
+  provider: SocialProvider;
+  providerAccountId: string;
+  username: string | null;
+  displayName: string | null;
+  status: "pending" | "active" | "reauthorization_required" | "revoked" | "error";
+  grantedScopes: string[];
+  capabilities: string[];
+  accessTokenExpiresAt: string | null;
+  connectedAt: string;
+  lastSyncedAt: string | null;
+  revokedAt: string | null;
+  errorCode: string | null;
+};
+
+export type SocialContent = {
+  id: string;
+  provider: SocialProvider;
+  providerContentId: string;
+  canonicalUrl: string | null;
+  contentType: string | null;
+  title: string | null;
+  description: string | null;
+  visibility: string | null;
+  publishedAt: string | null;
+};
 
 export type CreatorProfile = {
   id: string;
