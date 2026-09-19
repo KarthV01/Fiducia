@@ -273,6 +273,20 @@ export type Observation = {
   metric: { key: string; label: string | null };
 };
 
+export type AgreementContent = {
+  id: string;
+  provider: SocialProvider;
+  status: string;
+  publishMode: "api" | "manual" | null;
+  publicationPayoutId: string | null;
+  retentionPayoutId: string | null;
+  measurementStartsAt: string | null;
+  measurementEndsAt: string | null;
+  retentionEndsAt: string | null;
+  socialContent: SocialContent | null;
+  observations?: Observation[];
+};
+
 export type EnrichedAgreement = {
   id: string;
   title: string | null;
@@ -303,6 +317,7 @@ export type EnrichedAgreement = {
   publicationDeadline: string | null;
   retentionDays: number;
   publications: Array<{ id: string; method: string; status: string; youtubeUrl: string | null; fingerprintScore: number | null }>;
+  agreementContents: AgreementContent[];
 };
 
 export type DeliverableReviewInput = {

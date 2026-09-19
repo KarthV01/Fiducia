@@ -5,6 +5,7 @@ import type { EnrichedAgreement } from "../../lib/types";
 import { useResource } from "../../lib/useResource";
 import { ContractPanel } from "../../ui/ContractPanel";
 import { Banner, PageHeader } from "../../ui/primitives";
+import { CreatorSocialDeliverables } from "../../ui/SocialDeliverables";
 
 export function CreatorContractDetailPage() {
   const { creatorId = "", id = "" } = useParams();
@@ -16,6 +17,8 @@ export function CreatorContractDetailPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const view = contract ?? data;
+  const connections = useResource(`creator-contract-connections-${creatorId}`, () => api.socialConnections(creatorId));
+  const evidence = useResource(`creator-contract-evidence-${creatorId}-${id}`, () => api.creatorMeasurementEvidence(creatorId, id));
 
   if (loading && !view) {
     return <p className="text-sm text-muted">Loading contract...</p>;
@@ -78,6 +81,7 @@ export function CreatorContractDetailPage() {
         }
         }}
       />
+      {view.agreementContents?.length ? <CreatorSocialDeliverables creatorId={creatorId} agreementId={view.id} contents={view.agreementContents} connections={connections.data?.connections ?? []} evidence={evidence.data?.contents ?? []} onChanged={() => { reload(); evidence.reload(); }} /> : null}
     </div>
   );
 }

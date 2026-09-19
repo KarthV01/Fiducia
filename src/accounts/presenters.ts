@@ -93,6 +93,8 @@ export function buildContractWorkflow(agreement: AgreementView) {
   const promo = agreement.deliverableSubmissions.find((item) => item.checkpoint === "promo") ?? null;
   const finalCut = agreement.deliverableSubmissions.find((item) => item.checkpoint === "final_cut") ?? null;
   const publication = agreement.publications[0] ?? null;
+  const socialDeliverables = agreement.agreementContents ?? [];
+  const socialPublicationsComplete = socialDeliverables.length > 0 && socialDeliverables.every((item) => item.socialContentId);
   const latestSubmission = finalCut ?? promo;
   const completedSteps: string[] = [];
   if (agreement.status !== AGREEMENT_STATUS.draft && agreement.status !== AGREEMENT_STATUS.acceptedOffchain) {
@@ -103,6 +105,7 @@ export function buildContractWorkflow(agreement: AgreementView) {
   if (finalCut) completedSteps.push("Private final cut submitted");
   if (finalCut?.status === DELIVERABLE_STATUS.approved) completedSteps.push("Private final cut approved", "20% base payment released");
   if (publication?.status === "verified" || publication?.status === "retention" || publication?.status === "completed") completedSteps.push("Publication verified", "60% base payment released");
+  if (socialPublicationsComplete) completedSteps.push(`${socialDeliverables.length} platform publication${socialDeliverables.length === 1 ? "" : "s"} attached for verification`);
 
   let deliveryStatus = "awaiting_submission";
   let currentStep = "accept_contract";
@@ -128,17 +131,17 @@ export function buildContractWorkflow(agreement: AgreementView) {
     deliveryStatus = "in_review";
     currentStep = "review_final_cut";
     sponsorAction = "review";
-  } else if (!publication) {
+  } else if (!publication && !socialPublicationsComplete) {
     deliveryStatus = "approved_for_publication";
     currentStep = "publish";
     creatorAction = "publish";
-  } else if (publication.status === "verification_required") {
+  } else if (publication?.status === "verification_required") {
     deliveryStatus = "changes_requested";
     currentStep = "publish";
     creatorAction = "publish";
   } else {
-    deliveryStatus = publication.status;
-    currentStep = publication.status === "completed" ? "completed" : "retention";
+    deliveryStatus = publication?.status ?? "retention";
+    currentStep = publication?.status === "completed" ? "completed" : "retention";
   }
 
   return {

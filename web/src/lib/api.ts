@@ -192,6 +192,9 @@ export const api = {
   refreshSocialConnection: (creatorId: string, connectionId: string) => request<SocialConnection>(`/api/creators/${creatorId}/social-connections/${connectionId}/refresh`, { method: "POST" }),
   disconnectSocialConnection: (creatorId: string, connectionId: string) => request<SocialConnection>(`/api/creators/${creatorId}/social-connections/${connectionId}`, { method: "DELETE" }),
   socialContent: (creatorId: string, connectionId: string, cursor?: string) => request<{ items: SocialContent[]; cursor?: string }>(`/api/creators/${creatorId}/social-connections/${connectionId}/content${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`),
+  attachSocialPublication: (creatorId: string, agreementId: string, socialContentId: string) => request(`/api/creators/${creatorId}/contracts/${agreementId}/social-publications`, { method: "POST", body: JSON.stringify({ socialContentId, publishMode: "manual" }) }),
+  creatorMeasurementEvidence: (creatorId: string, agreementId: string) => request<{ contents: import("./types").AgreementContent[] }>(`/api/creators/${creatorId}/contracts/${agreementId}/measurement-evidence`),
+  sponsorMeasurementEvidence: (sponsorId: string, agreementId: string) => request<{ contents: import("./types").AgreementContent[] }>(`/api/sponsors/${sponsorId}/contracts/${agreementId}/measurement-evidence`),
   acceptInvite: (creatorId: string, inviteId: string) =>
     request<AcceptInviteResult>(`/api/creators/${creatorId}/invites/${inviteId}/accept`, { method: "POST" }),
   connectYouTube: (creatorId: string, agreementId: string) => request<{ authorizationUrl: string }>(`/api/creators/${creatorId}/contracts/${agreementId}/youtube/connect`, { method: "POST" }),

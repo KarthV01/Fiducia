@@ -5,6 +5,7 @@ import { useResource } from "../../lib/useResource";
 import type { EnrichedAgreement } from "../../lib/types";
 import { ContractPanel } from "../../ui/ContractPanel";
 import { Banner, PageHeader } from "../../ui/primitives";
+import { SocialEvidence } from "../../ui/SocialDeliverables";
 
 export function SponsorContractDetailPage() {
   const { sponsorId = "", id = "" } = useParams();
@@ -17,6 +18,7 @@ export function SponsorContractDetailPage() {
   const [message, setMessage] = useState<string | null>(null);
 
   const view = contract ?? data;
+  const evidence = useResource(`sponsor-contract-evidence-${sponsorId}-${id}`, () => api.sponsorMeasurementEvidence(sponsorId, id));
 
   async function run(action: () => Promise<EnrichedAgreement | { releasedPayoutIds: string[]; agreement: EnrichedAgreement }>) {
     setBusy(true);
@@ -65,6 +67,7 @@ export function SponsorContractDetailPage() {
         }
         onRecordMetric={(input) => run(() => api.recordBrandMetric(sponsorId, view.id, input))}
       />
+      <SocialEvidence contents={evidence.data?.contents ?? view.agreementContents ?? []} />
     </div>
   );
 }
