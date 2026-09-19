@@ -1,8 +1,8 @@
-import { providerConfig } from "../providerConfig.js";
+import { providerConfig, providerPublishScopeEnabled } from "../providerConfig.js";
 import type { ProviderAdapter, ProviderMetric } from "../types.js";
 import { bearer, form, providerJson } from "./http.js";
 
-const scopes = ["user.info.basic", "user.info.profile", "user.info.stats", "video.list", "video.publish", "video.upload"];
+const scopes = ["user.info.basic", "user.info.profile", "user.info.stats", "video.list", ...(providerPublishScopeEnabled("tiktok") ? ["video.publish", "video.upload"] : [])];
 const videoFields = "id,title,video_description,create_time,share_url,duration,view_count,like_count,comment_count,share_count";
 
 export const tiktokAdapter: ProviderAdapter = {
@@ -24,7 +24,7 @@ export const tiktokAdapter: ProviderAdapter = {
   },
   async identity(accessToken) {
     const body = await providerJson<{ data: { user: { open_id: string; username?: string; display_name?: string } } }>("tiktok", "https://open.tiktokapis.com/v2/user/info/?fields=open_id,username,display_name,avatar_url,profile_deep_link,is_verified,follower_count,following_count,likes_count,video_count", { headers: bearer(accessToken) });
-    return { accountId: body.data.user.open_id, username: body.data.user.username, displayName: body.data.user.display_name, capabilities: ["profile.read", "content.read", "metrics.public", "content.publish"] };
+    return { accountId: body.data.user.open_id, username: body.data.user.username, displayName: body.data.user.display_name, capabilities: ["profile.read", "content.read", "metrics.public"] };
   },
   async listContent(accessToken, cursor) {
     const body = await providerJson<{ data?: { videos?: Array<{ id: string; title?: string; video_description?: string; share_url?: string; create_time?: number }>; cursor?: number; has_more?: boolean } }>("tiktok", `https://open.tiktokapis.com/v2/video/list/?fields=${videoFields}`, { method: "POST", headers: bearer(accessToken, { "content-type": "application/json" }), body: JSON.stringify({ max_count: 20, ...(cursor ? { cursor: Number(cursor) } : {}) }) });

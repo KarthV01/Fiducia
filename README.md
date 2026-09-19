@@ -26,6 +26,8 @@ The application supports:
 
 The current payout model assigns 10% to concept approval, 20% to final-cut approval, 60% to verified publication, and 10% to retention. Performance rules settle independently, and expired campaigns return only the unreleased portion of escrow.
 
+Multi-platform OAuth, measurement, and rollout details are documented in [the implementation plan](docs/social-platform-integration-plan.md) and [provider setup guide](docs/social-platform-setup.md).
+
 ## Integrity model
 
 Creator-entered metrics cannot release funds. Publication and performance depend on trusted monitoring, with repeated compliant observations before settlement. Approved deliverables are anchored to immutable snapshots so later file changes cannot redefine what a sponsor accepted. OAuth refresh tokens are encrypted, files remain private to the agreement parties, and external storage is abstracted behind a service boundary.

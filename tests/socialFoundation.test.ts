@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import { decryptSocialSecret, encryptSocialSecret } from "../src/social/crypto.js";
+import { providerPublishScopeEnabled } from "../src/social/providerConfig.js";
 import { providerAdapter } from "../src/social/providers/index.js";
 
 const original = { ...process.env };
@@ -40,5 +41,16 @@ describe("social connection foundation", () => {
     const url = new URL(providerAdapter("youtube").authorizationUrl({ state: "state", codeChallenge: "challenge" }));
     expect(url.searchParams.get("redirect_uri")).toBe(process.env.YOUTUBE_SOCIAL_REDIRECT_URI);
     expect(url.searchParams.get("scope")).toContain("yt-analytics.readonly");
+  });
+
+  it("keeps unreviewed publishing disabled while preserving the existing YouTube upload default", () => {
+    delete process.env.REQUEST_INSTAGRAM_PUBLISH_SCOPE;
+    delete process.env.REQUEST_YOUTUBE_UPLOAD_SCOPE;
+    expect(providerPublishScopeEnabled("instagram")).toBe(false);
+    expect(providerPublishScopeEnabled("youtube")).toBe(true);
+    process.env.REQUEST_INSTAGRAM_PUBLISH_SCOPE = "true";
+    process.env.REQUEST_YOUTUBE_UPLOAD_SCOPE = "false";
+    expect(providerPublishScopeEnabled("instagram")).toBe(true);
+    expect(providerPublishScopeEnabled("youtube")).toBe(false);
   });
 });

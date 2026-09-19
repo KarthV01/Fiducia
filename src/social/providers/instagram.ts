@@ -1,8 +1,8 @@
-import { providerConfig } from "../providerConfig.js";
+import { providerConfig, providerPublishScopeEnabled } from "../providerConfig.js";
 import type { ProviderAdapter, ProviderMetric } from "../types.js";
 import { bearer, form, providerJson } from "./http.js";
 
-const scopes = ["instagram_business_basic", "instagram_business_manage_insights", "instagram_business_content_publish"];
+const scopes = ["instagram_business_basic", "instagram_business_manage_insights", ...(providerPublishScopeEnabled("instagram") ? ["instagram_business_content_publish"] : [])];
 
 export const instagramAdapter: ProviderAdapter = {
   provider: "instagram",
@@ -23,7 +23,7 @@ export const instagramAdapter: ProviderAdapter = {
   },
   async identity(accessToken) {
     const body = await providerJson<{ user_id?: string; id?: string; username?: string; name?: string }>("instagram", `https://graph.instagram.com/me?fields=user_id,username,name,account_type&access_token=${encodeURIComponent(accessToken)}`);
-    return { accountId: body.user_id ?? body.id ?? "", username: body.username, displayName: body.name, capabilities: ["profile.read", "content.read", "metrics.read", "content.publish"] };
+    return { accountId: body.user_id ?? body.id ?? "", username: body.username, displayName: body.name, capabilities: ["profile.read", "content.read", "metrics.read"] };
   },
   async listContent(accessToken, cursor) {
     const url = cursor ?? `https://graph.instagram.com/me/media?fields=id,caption,media_type,media_product_type,permalink,timestamp&limit=50&access_token=${encodeURIComponent(accessToken)}`;

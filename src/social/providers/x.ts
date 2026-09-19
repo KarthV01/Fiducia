@@ -1,8 +1,8 @@
-import { providerConfig } from "../providerConfig.js";
+import { providerConfig, providerPublishScopeEnabled } from "../providerConfig.js";
 import type { ProviderAdapter, ProviderMetric } from "../types.js";
 import { bearer, form, providerJson } from "./http.js";
 
-const scopes = ["users.read", "tweet.read", "tweet.write", "offline.access"];
+const scopes = ["users.read", "tweet.read", "offline.access", ...(providerPublishScopeEnabled("x") ? ["tweet.write"] : [])];
 const tweetFields = "id,text,created_at,author_id,public_metrics,non_public_metrics,organic_metrics";
 
 export const xAdapter: ProviderAdapter = {
@@ -24,7 +24,7 @@ export const xAdapter: ProviderAdapter = {
   },
   async identity(accessToken) {
     const body = await providerJson<{ data: { id: string; username?: string; name?: string } }>("x", "https://api.x.com/2/users/me?user.fields=id,name,username,public_metrics", { headers: bearer(accessToken) });
-    return { accountId: body.data.id, username: body.data.username, displayName: body.data.name, capabilities: ["profile.read", "content.read", "metrics.public", "content.publish"] };
+    return { accountId: body.data.id, username: body.data.username, displayName: body.data.name, capabilities: ["profile.read", "content.read", "metrics.public"] };
   },
   async listContent(accessToken, cursor) {
     const identity = await this.identity(accessToken);

@@ -18,6 +18,7 @@
     "deploy:base-mainnet": "tsx scripts/deployBase.ts base-mainnet",
     "check:base-sepolia": "tsx scripts/checkBaseReadiness.ts base-sepolia",
     "check:base-mainnet": "tsx scripts/checkBaseReadiness.ts base-mainnet",
+    "check:social": "tsx scripts/checkSocialReadiness.ts",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "web:dev": "npm --prefix web run dev",

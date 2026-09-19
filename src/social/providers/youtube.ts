@@ -1,8 +1,8 @@
-import { providerConfig } from "../providerConfig.js";
+import { providerConfig, providerPublishScopeEnabled } from "../providerConfig.js";
 import type { ProviderAdapter, ProviderMetric } from "../types.js";
 import { bearer, form, providerJson } from "./http.js";
 
-const scopes = ["https://www.googleapis.com/auth/youtube.readonly", "https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/yt-analytics.readonly"];
+const scopes = ["https://www.googleapis.com/auth/youtube.readonly", "https://www.googleapis.com/auth/yt-analytics.readonly", ...(providerPublishScopeEnabled("youtube") ? ["https://www.googleapis.com/auth/youtube.upload"] : [])];
 
 export const youtubeAdapter: ProviderAdapter = {
   provider: "youtube",
@@ -25,7 +25,7 @@ export const youtubeAdapter: ProviderAdapter = {
     const body = await providerJson<{ items?: Array<{ id: string; snippet?: { title?: string; customUrl?: string } }> }>("youtube", "https://www.googleapis.com/youtube/v3/channels?part=id,snippet&mine=true", { headers: bearer(accessToken) });
     const channel = body.items?.[0];
     if (!channel) throw new Error("The Google account does not expose a YouTube channel.");
-    return { accountId: channel.id, username: channel.snippet?.customUrl, displayName: channel.snippet?.title, capabilities: ["profile.read", "content.read", "metrics.public", "metrics.owner", "content.publish"] };
+    return { accountId: channel.id, username: channel.snippet?.customUrl, displayName: channel.snippet?.title, capabilities: ["profile.read", "content.read", "metrics.public", "metrics.owner", ...(providerPublishScopeEnabled("youtube") ? ["content.publish"] : [])] };
   },
   async listContent(accessToken, cursor) {
     const identity = await this.identity(accessToken);
