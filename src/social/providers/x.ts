@@ -35,7 +35,13 @@ export const xAdapter: ProviderAdapter = {
   },
   async metrics(accessToken, contentIds) {
     if (!contentIds.length) return [];
-    const body = await providerJson<{ data?: Array<Record<string, unknown> & { id: string; public_metrics?: Record<string, number>; non_public_metrics?: Record<string, number>; organic_metrics?: Record<string, number> }> }>("x", `https://api.x.com/2/tweets?${new URLSearchParams({ ids: contentIds.slice(0, 100).join(","), "tweet.fields": tweetFields })}`, { headers: bearer(accessToken) });
+    type MetricsBody = { data?: Array<Record<string, unknown> & { id: string; public_metrics?: Record<string, number>; non_public_metrics?: Record<string, number>; organic_metrics?: Record<string, number> }> };
+    let body: MetricsBody;
+    try {
+      body = await providerJson<MetricsBody>("x", `https://api.x.com/2/tweets?${new URLSearchParams({ ids: contentIds.slice(0, 100).join(","), "tweet.fields": tweetFields })}`, { headers: bearer(accessToken) });
+    } catch {
+      body = await providerJson<MetricsBody>("x", `https://api.x.com/2/tweets?${new URLSearchParams({ ids: contentIds.slice(0, 100).join(","), "tweet.fields": "id,public_metrics" })}`, { headers: bearer(accessToken) });
+    }
     const observations: ProviderMetric[] = [];
     for (const post of body.data ?? []) {
       for (const [sourceClass, metrics] of [["public_api", post.public_metrics], ["owner_analytics", post.non_public_metrics], ["owner_analytics", post.organic_metrics]] as const) {

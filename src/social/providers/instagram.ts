@@ -33,11 +33,19 @@ export const instagramAdapter: ProviderAdapter = {
   async metrics(accessToken, contentIds) {
     const observations: ProviderMetric[] = [];
     for (const id of contentIds) {
-      const body = await providerJson<{ data?: Array<{ name: string; values?: Array<{ value: number }> }> }>("instagram", `https://graph.instagram.com/${encodeURIComponent(id)}/insights?metric=views,reach,likes,comments,saved,shares&access_token=${encodeURIComponent(accessToken)}`);
-      for (const item of body.data ?? []) {
-        const value = item.values?.at(-1)?.value;
-        if (value == null) continue;
-        observations.push({ providerContentId: id, key: `instagram.media.${item.name === "saved" ? "saves" : item.name}`, providerField: item.name, value: String(value), unit: "count", sourceEndpoint: "/insights", sourceClass: "owner_analytics", observedAt: new Date() });
+      const publicCounts = await providerJson<{ like_count?: number; comments_count?: number }>("instagram", `https://graph.instagram.com/${encodeURIComponent(id)}?fields=like_count,comments_count&access_token=${encodeURIComponent(accessToken)}`);
+      for (const [field, key] of [["like_count", "likes"], ["comments_count", "comments"]] as const) {
+        if (publicCounts[field] != null) observations.push({ providerContentId: id, key: `instagram.media.${key}`, providerField: field, value: String(publicCounts[field]), unit: "count", sourceEndpoint: `/${id}`, sourceClass: "public_api", observedAt: new Date() });
+      }
+      for (const requested of ["views", "reach", "saved", "shares"]) {
+        try {
+          const body = await providerJson<{ data?: Array<{ name: string; values?: Array<{ value: number }>; total_value?: { value?: number } }> }>("instagram", `https://graph.instagram.com/${encodeURIComponent(id)}/insights?metric=${requested}&access_token=${encodeURIComponent(accessToken)}`);
+          for (const item of body.data ?? []) {
+            const value = item.total_value?.value ?? item.values?.at(-1)?.value;
+            if (value == null) continue;
+            observations.push({ providerContentId: id, key: `instagram.media.${item.name === "saved" ? "saves" : item.name}`, providerField: item.name, value: String(value), unit: "count", sourceEndpoint: "/insights", sourceClass: "owner_analytics", observedAt: new Date() });
+          }
+        } catch { /* Insight availability varies by media type; absence is not zero. */ }
       }
     }
     return observations;

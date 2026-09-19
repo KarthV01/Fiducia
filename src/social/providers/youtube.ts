@@ -40,6 +40,32 @@ export const youtubeAdapter: ProviderAdapter = {
     const map: Record<string, string> = { viewCount: "views", likeCount: "likes", commentCount: "comments" };
     const observations: ProviderMetric[] = [];
     for (const video of body.items ?? []) for (const [field, key] of Object.entries(map)) if (video.statistics?.[field] != null) observations.push({ providerContentId: video.id, key: `youtube.video.${key}`, providerField: field, value: video.statistics[field], unit: "count", sourceEndpoint: "/youtube/v3/videos", sourceClass: "public_api", observedAt: new Date() });
+    const endDate = new Date().toISOString().slice(0, 10);
+    const startDate = new Date(Date.now() - 366 * 86_400_000).toISOString().slice(0, 10);
+    const ownerMap: Record<string, { key: string; unit: string }> = {
+      views: { key: "views", unit: "count" },
+      engagedViews: { key: "engaged_views", unit: "count" },
+      estimatedMinutesWatched: { key: "watch_minutes", unit: "minutes" },
+      averageViewDuration: { key: "average_view_duration_seconds", unit: "seconds" },
+      averageViewPercentage: { key: "average_view_percentage", unit: "percent" },
+      likes: { key: "likes", unit: "count" },
+      comments: { key: "comments", unit: "count" },
+      shares: { key: "shares", unit: "count" },
+      subscribersGained: { key: "subscribers_gained", unit: "count" },
+    };
+    for (const videoId of contentIds) {
+      try {
+        const analytics = await providerJson<{ columnHeaders?: Array<{ name: string }>; rows?: Array<Array<string | number>> }>("youtube", `https://youtubeanalytics.googleapis.com/v2/reports?${new URLSearchParams({ ids: "channel==MINE", startDate, endDate, metrics: Object.keys(ownerMap).join(","), filters: `video==${videoId}` })}`, { headers: bearer(accessToken) });
+        const row = analytics.rows?.[0];
+        if (!row) continue;
+        analytics.columnHeaders?.forEach((column, index) => {
+          const definition = ownerMap[column.name];
+          const value = row[index];
+          if (!definition || value == null) return;
+          observations.push({ providerContentId: videoId, key: `youtube.video.${definition.key}`, providerField: column.name, value: String(value), unit: definition.unit, sourceEndpoint: "/youtubeanalytics/v2/reports", sourceClass: "owner_analytics", observedAt: new Date(), intervalStart: new Date(`${startDate}T00:00:00.000Z`), intervalEnd: new Date(`${endDate}T23:59:59.999Z`) });
+        });
+      } catch { /* Report metric compatibility can vary; public counters remain usable. */ }
+    }
     return observations;
   },
   async revoke(accessToken) {
