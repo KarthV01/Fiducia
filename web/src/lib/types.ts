@@ -373,7 +373,7 @@ export type CreateContractInput = {
   measurementWindowDays: number;
   basePayoutAmount: string;
   totalCapAmount: string;
-  viewMilestones: Array<{ views: string | number; bonusAmount: string }>;
+  viewMilestones: Array<{ views: string | number; bonusAmount: string; metricKey?: string }>;
   metricBonuses: Array<{
     metricKey: string;
     label: string;
@@ -385,6 +385,7 @@ export type CreateContractInput = {
   publicationRequirements: string;
   retentionDays: number;
   meteredViews?: { startsAtViews: string; amountPerThousandViews: string; maximumAmount: string };
+  platformDeliverables: Array<{ provider: SocialProvider; requirements: string }>;
 };
 
 export type MetricObservationInput = {

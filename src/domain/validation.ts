@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CONDITION_OPERATOR, PAYOUT_KIND, REVIEW_DECISION } from "./status.js";
+import { SOCIAL_PROVIDERS } from "../social/types.js";
 
 const positiveIntegerString = z.string().regex(/^[1-9]\d*$/, "Must be a positive integer string");
 const nonNegativeIntegerString = z.string().regex(/^(0|[1-9]\d*)$/, "Must be an integer string");
@@ -26,6 +27,7 @@ const payoutSchema = z
     label: z.string().min(1),
     amount: positiveIntegerString,
     condition: conditionSchema.optional(),
+    platform: z.enum(SOCIAL_PROVIDERS).optional(),
   })
   .superRefine((payout, ctx) => {
     if (payout.kind !== PAYOUT_KIND.bonus && payout.condition) {
@@ -65,6 +67,10 @@ export const createAgreementSchema = z
     publicationRequirements: z.string().optional(),
     publicationDeadline: z.string().datetime().optional(),
     retentionDays: z.number().int().positive().default(7),
+    platformDeliverables: z.array(z.object({
+      provider: z.enum(SOCIAL_PROVIDERS),
+      requirements: z.string().min(1),
+    })).min(1).default([{ provider: "youtube", requirements: "Publish the approved final cut on the contracted creator channel" }]),
     performanceRules: z.array(z.object({
       kind: z.enum(["fixed", "metered"]),
       threshold: positiveIntegerString.optional(),
@@ -77,7 +83,11 @@ export const createAgreementSchema = z
   .superRefine((agreement, ctx) => {
     const basePayouts = agreement.payouts.filter((payout) => payout.kind === PAYOUT_KIND.base);
     const milestoneKinds = [PAYOUT_KIND.promo, PAYOUT_KIND.finalCut, PAYOUT_KIND.publication, PAYOUT_KIND.retention];
-    const hasMilestones = milestoneKinds.every((kind) => agreement.payouts.filter((payout) => payout.kind === kind).length === 1);
+    const hasMilestones =
+      agreement.payouts.filter((payout) => payout.kind === PAYOUT_KIND.promo).length === 1 &&
+      agreement.payouts.filter((payout) => payout.kind === PAYOUT_KIND.finalCut).length === 1 &&
+      agreement.payouts.filter((payout) => payout.kind === PAYOUT_KIND.publication).length === agreement.platformDeliverables.length &&
+      agreement.payouts.filter((payout) => payout.kind === PAYOUT_KIND.retention).length === agreement.platformDeliverables.length;
     if (basePayouts.length !== 1 && !hasMilestones) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

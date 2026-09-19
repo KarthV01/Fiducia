@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import { formatUsdc, usdcToUnits } from "../../lib/money";
-import type { SocialProfile } from "../../lib/types";
+import type { SocialProfile, SocialProvider } from "../../lib/types";
 import { useResource } from "../../lib/useResource";
 import { Banner, Button, ButtonLink, Field, Input, PageHeader, RequiredMark, Select, Textarea } from "../../ui/primitives";
 
@@ -36,6 +36,7 @@ export function NewContractPage() {
   const [promoRequirements, setPromoRequirements] = useState("Sponsor message and disclosure concept");
   const [finalCutRequirements, setFinalCutRequirements] = useState("Complete pre-publication video containing the approved promotion");
   const [publicationRequirements, setPublicationRequirements] = useState("Publish the approved final cut on the contracted creator channel");
+  const [platforms, setPlatforms] = useState<SocialProvider[]>(["youtube"]);
   const [retentionDays, setRetentionDays] = useState("7");
   const [meteredStart, setMeteredStart] = useState("");
   const [meteredRate, setMeteredRate] = useState("");
@@ -115,6 +116,7 @@ export function NewContractPage() {
         .map((row) => ({
           views: row.views.trim(),
           bonusAmount: usdcToUnits(row.bonusUsdc),
+          metricKey: viewMetric(platforms[0]),
         }));
       const metricBonuses = bonuses
         .filter((row) => row.metricKey && row.label.trim() && row.threshold.trim() && row.bonusUsdc.trim())
@@ -148,7 +150,8 @@ export function NewContractPage() {
         finalCutRequirements,
         publicationRequirements,
         retentionDays: Number(retentionDays),
-        meteredViews: meteredStart && meteredRate && meteredCap ? { startsAtViews: meteredStart, amountPerThousandViews: usdcToUnits(meteredRate), maximumAmount: usdcToUnits(meteredCap) } : undefined,
+        meteredViews: platforms.includes("youtube") && meteredStart && meteredRate && meteredCap ? { startsAtViews: meteredStart, amountPerThousandViews: usdcToUnits(meteredRate), maximumAmount: usdcToUnits(meteredCap) } : undefined,
+        platformDeliverables: platforms.map((provider) => ({ provider, requirements: publicationRequirements })),
       });
       navigate(`/sponsor/${sponsorId}/contracts/${created.agreement.id}`);
     } catch (err) {
@@ -228,6 +231,13 @@ export function NewContractPage() {
         <Field label="Deliverable" required>
           <Textarea rows={4} value={deliverable} onChange={(event) => setDeliverable(event.target.value)} required />
         </Field>
+        <section className="rounded-xl border border-rule bg-surface p-4">
+          <h2 className="text-sm font-medium text-ink">Publishing platforms <RequiredMark /></h2>
+          <p className="mt-1 text-sm text-muted">Each selected platform becomes an independently published, measured, and paid post.</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {(["instagram", "x", "tiktok", "youtube"] as SocialProvider[]).map((provider) => <label key={provider} className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 ${platforms.includes(provider) ? "border-accent-rule bg-accent-soft" : "border-rule"}`}><input type="checkbox" checked={platforms.includes(provider)} onChange={(event) => setPlatforms((current) => event.target.checked ? [...current, provider] : current.filter((item) => item !== provider))} className="accent-accent" /><span className="text-sm font-medium text-ink">{platformLabel(provider)}</span></label>)}
+          </div>
+        </section>
         <section className="space-y-4 rounded-xl border border-rule bg-surface p-4">
           <h2 className="text-sm font-medium text-ink">Approval criteria</h2>
           <Field label="Promotional concept requirements" required><Textarea rows={3} value={promoRequirements} onChange={(event) => setPromoRequirements(event.target.value)} required /></Field>
@@ -297,7 +307,7 @@ export function NewContractPage() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-rule bg-surface p-4">
+        {platforms.includes("youtube") ? <section className="rounded-xl border border-rule bg-surface p-4">
           <h2 className="text-sm font-medium text-ink">Metered view earnings</h2>
           <p className="mt-1 text-sm text-muted">Optional capped payment per 1,000 verified views above a starting point.</p>
           <div className="mt-3 grid gap-3 md:grid-cols-3">
@@ -305,7 +315,7 @@ export function NewContractPage() {
             <Field label="USDC per 1,000"><Input value={meteredRate} onChange={(event) => setMeteredRate(event.target.value)} /></Field>
             <Field label="Maximum USDC"><Input value={meteredCap} onChange={(event) => setMeteredCap(event.target.value)} /></Field>
           </div>
-        </section>
+        </section> : null}
 
         <section className="rounded-xl border border-rule bg-surface p-4">
           <div className="mb-3 flex items-center justify-between">
@@ -337,7 +347,7 @@ export function NewContractPage() {
                       )
                     }
                   >
-                    {data.metrics.map((metric) => (
+                    {data.metrics.filter((metric) => platforms.some((provider) => metric.key.startsWith(`${provider}.`))).map((metric) => (
                       <option key={metric.key} value={metric.key}>
                         {metric.label}
                       </option>
@@ -400,6 +410,7 @@ export function NewContractPage() {
             disabled={
               submitting ||
               !creatorProfileId ||
+              platforms.length === 0 ||
               !title.trim() ||
               !deliverable.trim() ||
               !deadline ||
@@ -416,6 +427,9 @@ export function NewContractPage() {
     </div>
   );
 }
+
+function platformLabel(provider: SocialProvider) { return provider === "x" ? "X" : provider[0].toUpperCase() + provider.slice(1); }
+function viewMetric(provider: SocialProvider) { return provider === "instagram" ? "instagram.media.views" : provider === "x" ? "x.post.impression" : `${provider}.video.views`; }
 
 function hasPayoutInput(baseUsdc: string, capUsdc: string, milestones: MilestoneRow[], bonuses: BonusRow[]): boolean {
   return Boolean(

@@ -65,6 +65,7 @@ export type AgreementTermsSource = {
     };
   }>;
   performanceRules?: Array<{ kind: string; threshold: string | null; amount: string | null; startsAtViews: string | null; amountPerThousandViews: string | null; maximumAmount: string | null }>;
+  agreementContents?: Array<{ provider: string; requirementsJson: string; measurementSpecJson: string; publicationPayoutId: string | null; retentionPayoutId: string | null }>;
 };
 
 export function buildTermsSnapshot(agreement: AgreementTermsSource): JsonValue {
@@ -115,5 +116,8 @@ export function buildTermsSnapshot(agreement: AgreementTermsSource): JsonValue {
     performanceRules: (agreement.performanceRules ?? [])
       .map((rule) => ({ kind: rule.kind, threshold: rule.threshold, amount: rule.amount, startsAtViews: rule.startsAtViews, amountPerThousandViews: rule.amountPerThousandViews, maximumAmount: rule.maximumAmount }))
       .sort((a, b) => stableStringify(a).localeCompare(stableStringify(b))),
+    platformDeliverables: (agreement.agreementContents ?? [])
+      .map((content) => ({ provider: content.provider, requirements: JSON.parse(content.requirementsJson) as JsonValue, measurementSpec: JSON.parse(content.measurementSpecJson) as JsonValue, publicationPayoutId: content.publicationPayoutId, retentionPayoutId: content.retentionPayoutId }))
+      .sort((a, b) => a.provider.localeCompare(b.provider)),
   };
 }

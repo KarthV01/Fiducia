@@ -110,6 +110,22 @@ export async function registerSponsorRoutes(app: FastifyInstance, deps: RouteDep
       deps.chain?.defaultTokenAddress,
     );
     const agreement = await createAgreementFromInput(prisma, agreementInput);
+    for (const deliverable of input.platformDeliverables) {
+      const label = deliverable.provider === "x" ? "X" : deliverable.provider[0].toUpperCase() + deliverable.provider.slice(1);
+      const publicationPayout = agreement.payouts.find((payout) => payout.kind === "publication" && payout.label === `${label} verified publication`);
+      const retentionPayout = agreement.payouts.find((payout) => payout.kind === "retention" && payout.label === `${label} live-window retention`);
+      await prisma.agreementContent.create({ data: {
+        agreementId: agreement.id,
+        creatorProfileId: creator.id,
+        provider: deliverable.provider,
+        status: "awaiting_publication",
+        requirementsJson: JSON.stringify({ publicationRequirements: deliverable.requirements }),
+        measurementSpecJson: JSON.stringify({ metricKeys: agreement.metrics.filter((metric) => metric.key.startsWith(`${deliverable.provider}.`)).map((metric) => metric.key), confirmations: 2 }),
+        publicationPayoutId: publicationPayout?.id,
+        retentionPayoutId: retentionPayout?.id,
+        idempotencyKey: `agreement-content-template:${agreement.id}:${deliverable.provider}`,
+      } });
+    }
     const invite = await prisma.contractInvite.create({
       data: {
         sponsorProfileId: sponsor.id,

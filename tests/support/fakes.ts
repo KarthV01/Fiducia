@@ -300,6 +300,7 @@ export class FakePrisma {
   private uploadSessions: UploadSessionRow[] = [];
   private performanceRules: Array<Record<string, unknown>> = [];
   private chainOperations: Array<Record<string, unknown>> = [];
+  private agreementContents: Array<Record<string, any>> = [];
 
   agreement = {
     create: async ({ data }: { data: Partial<AgreementRow> }) => {
@@ -480,6 +481,14 @@ export class FakePrisma {
     create: async ({ data }: { data: Record<string, unknown> }) => {
       const row = { id: this.id("performanceRule"), releasedAmount: "0", createdAt: new Date(), ...data };
       this.performanceRules.push(row);
+      return row;
+    },
+  };
+
+  agreementContent = {
+    create: async ({ data }: { data: Record<string, any> }) => {
+      const row = { id: this.id("agreementContent"), socialContentId: null, publishMode: null, approvedArtifactId: null, artifactHash: null, verificationEvidenceHash: null, verifiedAt: null, measurementStartsAt: null, measurementEndsAt: null, retentionEndsAt: null, createdAt: new Date(), updatedAt: new Date(), ...data };
+      this.agreementContents.push(row);
       return row;
     },
   };
@@ -1117,6 +1126,7 @@ export class FakePrisma {
       publications: [],
       performanceRules: this.performanceRules.filter((rule) => rule.agreementId === id),
       chainOperations: this.chainOperations.filter((operation) => operation.agreementId === id),
+      agreementContents: this.agreementContents.filter((content) => content.agreementId === id).map((content) => ({ ...content, socialContent: null })),
       blockchainRecord: this.blockchainRecords.find((record) => record.agreementId === id) ?? null,
       contractInvite: this.contractInvites.find((invite) => invite.agreementId === id) ?? null,
     };

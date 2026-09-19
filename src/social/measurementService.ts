@@ -18,6 +18,17 @@ export async function attachAgreementContent(prisma: PrismaClient, input: { agre
   const approved = agreement.deliverableSubmissions.find((submission) => submission.checkpoint === "final_cut" && submission.status === "approved");
   if (!approved) throw conflict("The sponsor must approve the final platform-ready post before publication can be attached.");
   const startsAt = content.publishedAt ?? new Date();
+  const template = await prisma.agreementContent.findFirst({ where: { agreementId: agreement.id, creatorProfileId: input.creatorProfileId, provider: content.provider, socialContentId: null } });
+  if (template) return prisma.agreementContent.update({ where: { id: template.id }, data: {
+    socialContentId: content.id,
+    status: "monitoring",
+    publishMode: input.publishMode,
+    approvedArtifactId: approved.id,
+    artifactHash: approved.contentHash,
+    measurementStartsAt: startsAt,
+    measurementEndsAt: new Date(startsAt.getTime() + agreement.measurementWindowDays * 86_400_000),
+    retentionEndsAt: new Date(startsAt.getTime() + agreement.retentionDays * 86_400_000),
+  }, include: { socialContent: true } });
   return prisma.agreementContent.upsert({
     where: { idempotencyKey: `agreement-content:${agreement.id}:${content.provider}:${content.providerContentId}` },
     create: {
