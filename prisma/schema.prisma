@@ -486,8 +486,10 @@ model AgreementContent {
   provider                 String
   status                   String    @default("approved")
   publishMode              String?
-  approvedArtifactId       String
-  artifactHash             String
+  approvedArtifactId       String?
+  artifactHash             String?
+  publicationPayoutId      String?
+  retentionPayoutId        String?
   requirementsJson         String    @default("{}")
   measurementSpecJson      String    @default("{}")
   verificationEvidenceHash String?

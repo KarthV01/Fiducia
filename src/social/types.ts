@@ -26,6 +26,7 @@ export type ProviderContent = {
 };
 
 export type ProviderMetric = {
+  providerContentId: string;
   key: string;
   providerField: string;
   value: string;

@@ -39,7 +39,7 @@ export const youtubeAdapter: ProviderAdapter = {
     const body = await providerJson<{ items?: Array<{ id: string; statistics?: Record<string, string> }> }>("youtube", `https://www.googleapis.com/youtube/v3/videos?${new URLSearchParams({ part: "statistics", id: contentIds.slice(0, 50).join(",") })}`, { headers: bearer(accessToken) });
     const map: Record<string, string> = { viewCount: "views", likeCount: "likes", commentCount: "comments" };
     const observations: ProviderMetric[] = [];
-    for (const video of body.items ?? []) for (const [field, key] of Object.entries(map)) if (video.statistics?.[field] != null) observations.push({ key: `youtube.video.${key}`, providerField: field, value: video.statistics[field], unit: "count", sourceEndpoint: "/youtube/v3/videos", sourceClass: "public_api", observedAt: new Date() });
+    for (const video of body.items ?? []) for (const [field, key] of Object.entries(map)) if (video.statistics?.[field] != null) observations.push({ providerContentId: video.id, key: `youtube.video.${key}`, providerField: field, value: video.statistics[field], unit: "count", sourceEndpoint: "/youtube/v3/videos", sourceClass: "public_api", observedAt: new Date() });
     return observations;
   },
   async revoke(accessToken) {

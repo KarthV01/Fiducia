@@ -54,6 +54,7 @@ export const agreementInclude = {
   publications: { orderBy: { createdAt: "desc" } },
   performanceRules: true,
   chainOperations: { orderBy: { createdAt: "desc" } },
+  agreementContents: { orderBy: { createdAt: "asc" }, include: { socialContent: true } },
 } satisfies Prisma.AgreementInclude;
 
 export type AgreementView = Prisma.AgreementGetPayload<{

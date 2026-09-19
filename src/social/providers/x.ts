@@ -39,7 +39,7 @@ export const xAdapter: ProviderAdapter = {
     const observations: ProviderMetric[] = [];
     for (const post of body.data ?? []) {
       for (const [sourceClass, metrics] of [["public_api", post.public_metrics], ["owner_analytics", post.non_public_metrics], ["owner_analytics", post.organic_metrics]] as const) {
-        for (const [field, value] of Object.entries(metrics ?? {})) observations.push({ key: `x.post.${field.replace(/_count$/, "")}`, providerField: field, value: String(value), unit: "count", sourceEndpoint: "/2/tweets", sourceClass, observedAt: new Date() });
+        for (const [field, value] of Object.entries(metrics ?? {})) observations.push({ providerContentId: post.id, key: `x.post.${field.replace(/_count$/, "")}`, providerField: field, value: String(value), unit: "count", sourceEndpoint: "/2/tweets", sourceClass, observedAt: new Date() });
       }
     }
     return observations;

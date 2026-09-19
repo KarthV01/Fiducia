@@ -35,7 +35,7 @@ export const tiktokAdapter: ProviderAdapter = {
     for (let start = 0; start < contentIds.length; start += 20) {
       const body = await providerJson<{ data?: { videos?: Array<Record<string, number | string> & { id: string }> } }>("tiktok", `https://open.tiktokapis.com/v2/video/query/?fields=${videoFields}`, { method: "POST", headers: bearer(accessToken, { "content-type": "application/json" }), body: JSON.stringify({ filters: { video_ids: contentIds.slice(start, start + 20) } }) });
       for (const video of body.data?.videos ?? []) {
-        for (const field of ["view_count", "like_count", "comment_count", "share_count"] as const) if (video[field] != null) observations.push({ key: `tiktok.video.${field.replace("_count", "s")}`, providerField: field, value: String(video[field]), unit: "count", sourceEndpoint: "/v2/video/query/", sourceClass: "public_api", observedAt: new Date() });
+        for (const field of ["view_count", "like_count", "comment_count", "share_count"] as const) if (video[field] != null) observations.push({ providerContentId: video.id, key: `tiktok.video.${field.replace("_count", "s")}`, providerField: field, value: String(video[field]), unit: "count", sourceEndpoint: "/v2/video/query/", sourceClass: "public_api", observedAt: new Date() });
       }
     }
     return observations;

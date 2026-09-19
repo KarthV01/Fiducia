@@ -111,7 +111,7 @@ export async function disconnectConnection(prisma: PrismaClient, creatorProfileI
 
 export async function syncOwnedContent(prisma: PrismaClient, creatorProfileId: string, connectionId: string, cursor?: string) {
   const connection = await ownedConnection(prisma, creatorProfileId, connectionId);
-  const accessToken = await accessTokenFor(prisma, connection);
+  const accessToken = await accessTokenForConnection(prisma, connection);
   const adapter = providerAdapter(connection.provider as SocialProvider);
   const result = await adapter.listContent(accessToken, cursor);
   const items = [];
@@ -126,7 +126,7 @@ export async function syncOwnedContent(prisma: PrismaClient, creatorProfileId: s
   return { items, cursor: result.cursor };
 }
 
-async function accessTokenFor(prisma: PrismaClient, connection: Awaited<ReturnType<typeof ownedConnection>>) {
+export async function accessTokenForConnection(prisma: PrismaClient, connection: Awaited<ReturnType<typeof ownedConnection>>) {
   if (!connection.encryptedAccessToken) throw conflict("Reconnect this account before accessing provider data.");
   if (connection.accessTokenExpiresAt && connection.accessTokenExpiresAt.getTime() <= Date.now() + 5 * 60_000) {
     await refreshConnection(prisma, connection.creatorProfileId, connection.id);

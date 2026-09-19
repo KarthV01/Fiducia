@@ -37,7 +37,7 @@ export const instagramAdapter: ProviderAdapter = {
       for (const item of body.data ?? []) {
         const value = item.values?.at(-1)?.value;
         if (value == null) continue;
-        observations.push({ key: `instagram.media.${item.name === "saved" ? "saves" : item.name}`, providerField: item.name, value: String(value), unit: "count", sourceEndpoint: "/insights", sourceClass: "owner_analytics", observedAt: new Date() });
+        observations.push({ providerContentId: id, key: `instagram.media.${item.name === "saved" ? "saves" : item.name}`, providerField: item.name, value: String(value), unit: "count", sourceEndpoint: "/insights", sourceClass: "owner_analytics", observedAt: new Date() });
       }
     }
     return observations;
