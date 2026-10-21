@@ -1,5 +1,10 @@
 # Fiducia
 
+**Agree on the work. Lock in the funds. Get paid as you deliver.**
+
+> [*fiducia*](https://penelope.uchicago.edu/Thayer/E/Roman/Texts/secondary/SMIGRA%2A/Fiducia.html) — Latin for trust and confidence. In Roman law, it also named an arrangement in which someone transferred property to another person for a defined purpose, with an obligation to return it once that purpose was fulfilled. Something valuable changed hands before the obligation was complete; the agreement governed what happened next. Two thousand years later, a creator and a sponsor still face the same question: who commits first, and what makes the other side keep their word?
+> Fiducia backs that commitment with reserved funds and payouts tied to verified milestones.
+
 Fiducia is a sponsorship operations and escrow platform for creators and brands. It turns an informal campaign agreement into a traceable workflow where terms are accepted, funds are reserved, creative work is reviewed, publication is verified, performance is measured, and each payout is released only when its milestone has been satisfied.
 
 ## The problem
