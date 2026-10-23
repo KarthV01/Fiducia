@@ -62,14 +62,14 @@ it("still changes theme when browser storage is blocked", () => {
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const bootstrap = html.match(/<script>([\s\S]*?)<\/script>/)![1];
 it.each(["light", "dark", "invalid", null])("restores saved theme %s before the first paint", (saved) => {
-  const document = { documentElement: { dataset: { theme: "dark" } } };
+  const document = { documentElement: { dataset: { theme: "light" } } };
   runInNewContext(bootstrap, { document, localStorage: { getItem: () => saved } });
-  expect(document.documentElement.dataset.theme).toBe(saved === "light" ? "light" : "dark");
+  expect(document.documentElement.dataset.theme).toBe(saved === "dark" ? "dark" : "light");
 });
-it("keeps the dark default if storage is blocked at startup", () => {
-  const document = { documentElement: { dataset: { theme: "dark" } } };
+it("keeps the light default if storage is blocked at startup", () => {
+  const document = { documentElement: { dataset: { theme: "light" } } };
   expect(() => runInNewContext(bootstrap, { document, localStorage: { getItem: () => { throw new Error("blocked"); } } })).not.toThrow();
-  expect(document.documentElement.dataset.theme).toBe("dark");
+  expect(document.documentElement.dataset.theme).toBe("light");
 });
 
 const css = readFileSync(new URL("../src/index.css", import.meta.url), "utf8");
@@ -79,7 +79,8 @@ function luminance(hex: string) {
   return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
 }
 it.each(["dark", "light"])("has readable text and controls in the %s palette", (theme) => {
-  const tokens = palette(theme === "dark" ? css.match(/@theme\s*{([^}]+)}/)![1] : css.match(/:root\[data-theme="light"\]\s*{([^}]+)}/)![1]);
+  const light = palette(css.match(/@theme\s*{([^}]+)}/)![1]);
+  const tokens = theme === "dark" ? { ...light, ...palette(css.match(/:root\[data-theme="dark"\]\s*{([^}]+)}/)![1]) } : light;
   const pairs = ["ink:canvas", "ink:surface", "muted:canvas", "muted:surface", "link:accent-soft", "link:surface", "danger:danger-soft", "success:success-soft", "warning:warning-soft", "#ffffff:accent", "#ffffff:accent-hover"];
   for (const pair of pairs) {
     const [fg, bg] = pair.split(":").map((key) => luminance(key.startsWith("#") ? key : tokens[key]));

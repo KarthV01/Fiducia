@@ -3,7 +3,7 @@ export const THEME_KEY = "fiducia.theme";
 const THEME_EVENT = "fiducia:theme-changed";
 
 export function getTheme(): Theme {
-  return document.documentElement.dataset.theme === "light" ? "light" : "dark";
+  return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
 }
 
 export function setTheme(theme: Theme) {
@@ -15,7 +15,7 @@ export function setTheme(theme: Theme) {
 export function subscribeTheme(notify: () => void) {
   const onStorage = (event: StorageEvent) => {
     if (event.key !== THEME_KEY && event.key !== null) return;
-    document.documentElement.dataset.theme = event.newValue === "light" ? "light" : "dark";
+    document.documentElement.dataset.theme = event.newValue === "dark" ? "dark" : "light";
     notify();
   };
   window.addEventListener(THEME_EVENT, notify);

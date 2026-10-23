@@ -14,8 +14,15 @@ const paths = {
   back: "m12 19-7-7 7-7M5 12h14",
   compose: "M12 20H4V4h8M16 3l5 5-9 9-5 1 1-5Z",
   wallet: "M20 7V5a2 2 0 0 0-2-2H5a3 3 0 0 0 0 6h15v12H5a3 3 0 0 1-3-3V6M16 13h4v4h-4a2 2 0 0 1 0-4Z",
+  lock: "M7 11V7a5 5 0 0 1 10 0v4M5 11h14v10H5Z",
+  plus: "M12 5v14M5 12h14",
+  arrow: "M5 12h14M13 6l6 6-6 6",
+  check: "m5 12 5 5L20 7",
+  platforms: "M4 5h16v11H4ZM8 20h8M12 16v4",
+  shield: "M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6Z",
+  signout: "M9 21H5V3h4M16 17l5-5-5-5M21 12H9",
 } as const;
 
 export function Icon({ name, ...props }: SVGProps<SVGSVGElement> & { name: keyof typeof paths }) {
-  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}><path d={paths[name]} /></svg>;
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}><path d={paths[name]} /></svg>;
 }

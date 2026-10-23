@@ -1,12 +1,12 @@
 export function BrandMark({ size = "md", withName = false }: { size?: "sm" | "md" | "lg"; withName?: boolean }) {
-  const dimensions = size === "sm" ? "h-8 w-8" : size === "lg" ? "h-12 w-12" : "h-10 w-10";
-  return <span className="inline-flex items-center gap-3" aria-label={withName ? "Fiducia" : undefined}>
-    <span className={`inline-flex ${dimensions} shrink-0 items-center justify-center overflow-hidden rounded-[28%] bg-accent text-white shadow-sm`} aria-hidden="true">
+  const dimensions = size === "sm" ? "h-7 w-7" : size === "lg" ? "h-11 w-11" : "h-9 w-9";
+  return <span className="inline-flex items-center gap-2.5" aria-label={withName ? "Fiducia" : undefined}>
+    <span className={`inline-flex ${dimensions} shrink-0 items-center justify-center overflow-hidden rounded-[26%] bg-ink text-canvas shadow-card`} aria-hidden="true">
       <svg viewBox="0 0 32 32" className="h-full w-full" fill="none">
-        <path d="M10 7.5h13v4H14.5v3.4h7.2v3.8h-7.2v6H10V7.5Z" fill="currentColor" />
-        <path d="M23 7.5h-4.2l4.2 4.2V7.5Z" fill="white" fillOpacity=".42" />
+        <path d="M10 8h12v3.5h-8.5v3h7v3.5h-7V24H10V8Z" fill="currentColor" />
+        <rect x="19.5" y="20.5" width="3.5" height="3.5" rx="1" className="fill-accent" />
       </svg>
     </span>
-    {withName ? <span className="text-lg font-semibold tracking-[-0.04em] text-ink">Fiducia</span> : null}
+    {withName ? <span className="text-[17px] font-semibold tracking-[-0.03em] text-ink">Fiducia</span> : null}
   </span>;
 }

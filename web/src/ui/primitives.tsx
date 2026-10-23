@@ -2,23 +2,27 @@ import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAt
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+
+const buttonBase =
+  "inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg px-3.5 text-sm font-medium whitespace-nowrap transition-[background-color,border-color,color,box-shadow] duration-150 disabled:cursor-not-allowed disabled:opacity-45";
+const buttonVariants: Record<ButtonVariant, string> = {
+  primary: "border border-accent bg-accent text-white shadow-card hover:border-accent-hover hover:bg-accent-hover",
+  secondary: "border border-rule bg-surface text-ink shadow-card hover:bg-canvas",
+  ghost: "border border-transparent bg-transparent text-muted hover:bg-ink/[0.05] hover:text-ink",
+  danger: "border border-danger-rule bg-surface text-danger shadow-card hover:bg-danger-soft",
+};
+
+export function buttonClass(variant: ButtonVariant = "primary", className = "") {
+  return `${buttonBase} ${buttonVariants[variant]} ${className}`;
+}
+
 export function Button({
   variant = "primary",
   className = "",
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "ghost" }) {
-  const styles = {
-    primary: "border border-white/10 bg-accent text-white shadow-sm hover:bg-accent-hover disabled:opacity-40",
-    secondary: "border border-rule bg-surface text-ink hover:border-muted/50 hover:bg-accent-soft disabled:opacity-40",
-    ghost: "border border-transparent bg-transparent text-muted hover:bg-accent-soft hover:text-ink disabled:opacity-40",
-  }[variant];
-
-  return (
-    <button
-      className={`inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg px-3.5 text-sm font-medium transition-colors disabled:cursor-not-allowed ${styles} ${className}`}
-      {...props}
-    />
-  );
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant }) {
+  return <button className={buttonClass(variant, className)} {...props} />;
 }
 
 export function ButtonLink({
@@ -28,49 +32,45 @@ export function ButtonLink({
   children,
 }: {
   to: string;
-  variant?: "primary" | "secondary";
+  variant?: ButtonVariant;
   className?: string;
   children: ReactNode;
 }) {
-  const styles = {
-    primary: "border border-white/10 bg-accent text-white shadow-sm hover:bg-accent-hover",
-    secondary: "border border-rule bg-surface text-ink hover:border-muted/50 hover:bg-accent-soft",
-  }[variant];
-
   return (
-    <Link
-      to={to}
-      className={`inline-flex h-9 items-center justify-center rounded-[6px] px-3.5 text-sm font-medium transition-colors ${styles} ${className}`}
-    >
+    <Link to={to} className={buttonClass(variant, className)}>
       {children}
     </Link>
   );
 }
 
+const controlClass =
+  "w-full rounded-lg border border-rule bg-surface text-sm text-ink shadow-card outline-none transition-[border-color,box-shadow] placeholder:text-muted/80 focus:border-accent focus:ring-3 focus:ring-accent/15 disabled:opacity-60";
+
 export function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      className={`h-10 w-full rounded-lg border border-rule bg-canvas/50 px-3 text-sm text-ink outline-none placeholder:text-muted focus:border-link ${className}`}
-      {...props}
-    />
-  );
+  return <input className={`h-10 px-3 ${controlClass} ${className}`} {...props} />;
 }
 
 export function Select({ className = "", ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <select
-      className={`h-10 w-full rounded-lg border border-rule bg-surface px-3 text-sm text-ink outline-none focus:border-link ${className}`}
-      {...props}
-    />
-  );
+  return <select className={`h-10 px-3 ${controlClass} ${className}`} {...props} />;
 }
 
 export function Textarea({ className = "", ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return <textarea className={`px-3 py-2.5 ${controlClass} ${className}`} {...props} />;
+}
+
+export function Card({ className = "", children }: { className?: string; children: ReactNode }) {
+  return <div className={`rounded-xl border border-rule bg-surface shadow-card ${className}`}>{children}</div>;
+}
+
+export function SectionHeading({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
   return (
-    <textarea
-      className={`w-full rounded-lg border border-rule bg-canvas/50 px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-link ${className}`}
-      {...props}
-    />
+    <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-ink">{title}</h2>
+        {description ? <p className="mt-0.5 text-[13px] text-muted">{description}</p> : null}
+      </div>
+      {action}
+    </div>
   );
 }
 
@@ -131,13 +131,13 @@ export function Field({
         }
       }}
     >
-      <span className="mb-1.5 block text-sm text-ink">
+      <span className="mb-1.5 block text-[13px] font-medium text-ink">
         {label}
         {required ? <RequiredMark /> : null}
       </span>
       {children}
-      {showRequiredError ? <span className="mt-1 block text-xs text-danger">Required</span> : null}
-      {hint && !showRequiredError ? <span className="mt-1 block text-xs text-muted">{hint}</span> : null}
+      {showRequiredError ? <span className="mt-1.5 block text-xs text-danger">Required</span> : null}
+      {hint && !showRequiredError ? <span className="mt-1.5 block text-xs text-muted">{hint}</span> : null}
     </label>
   );
 }
@@ -152,9 +152,9 @@ export function Banner({
   const styles =
     tone === "error"
       ? "border-danger-rule bg-danger-soft text-danger"
-      : "border-ink/25 bg-accent-soft text-ink";
+      : "border-accent-rule bg-accent-soft text-ink";
 
-  return <div className={`rounded-[8px] border px-4 py-3 text-sm ${styles}`}>{children}</div>;
+  return <div role={tone === "error" ? "alert" : undefined} className={`rounded-lg border px-4 py-3 text-sm ${styles}`}>{children}</div>;
 }
 
 export function PageHeader({
@@ -167,20 +167,28 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <h1 className="text-[28px] font-semibold tracking-[-0.04em] text-ink">{title}</h1>
-        {description ? <p className="mt-1 text-sm text-muted">{description}</p> : null}
+    <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-rule pb-6">
+      <div className="min-w-0">
+        <h1 className="text-2xl font-semibold tracking-[-0.025em] text-ink">{title}</h1>
+        {description ? <p className="mt-1.5 max-w-2xl text-sm text-muted">{description}</p> : null}
       </div>
-      {action}
+      {action ? <div className="flex flex-wrap items-center gap-2">{action}</div> : null}
     </div>
   );
 }
 
 export function StatusPill({ status }: { status: string }) {
+  const tone = /active|completed|accepted|approved|connected|verified/.test(status)
+    ? "border-success-rule bg-success-soft text-success"
+    : /pending|review|invited|draft_ready|awaiting/.test(status)
+      ? "border-warning-rule bg-warning-soft text-warning"
+      : /rejected|failed|cancel|expired|revoked|disputed/.test(status)
+        ? "border-danger-rule bg-danger-soft text-danger"
+        : "border-rule bg-canvas text-muted";
   return (
-    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.05em] ${/active|completed|accepted|approved/.test(status) ? "border-success-rule bg-success-soft text-success" : /pending|review|invited/.test(status) ? "border-warning-rule bg-warning-soft text-warning" : "border-rule bg-canvas text-muted"}`}>
-      {status.replaceAll("_", " ")}
+    <span className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${tone}`}>
+      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current opacity-80" />
+      <span className="inline-block first-letter:uppercase">{status.replaceAll("_", " ")}</span>
     </span>
   );
 }
@@ -191,7 +199,7 @@ export function CopyText({ value, label }: { value: string; label?: string }) {
   return (
     <button
       type="button"
-      className="inline-flex items-center gap-2 rounded-[6px] border-2 border-transparent px-2 py-1 font-mono text-[12px] text-ink transition-colors hover:border-ink/25 hover:bg-accent-soft"
+      className="inline-flex items-center gap-2 rounded-md border border-transparent px-2 py-1 font-mono text-xs text-ink transition-colors hover:border-rule hover:bg-canvas"
       onClick={async () => {
         await navigator.clipboard.writeText(value);
         setCopied(true);
@@ -199,11 +207,11 @@ export function CopyText({ value, label }: { value: string; label?: string }) {
       }}
     >
       <span>{label ?? value}</span>
-      <span className="text-muted">{copied ? "Copied" : "Copy"}</span>
+      <span className="font-sans text-muted">{copied ? "Copied" : "Copy"}</span>
     </button>
   );
 }
 
 export function EmptyState({ children }: { children: ReactNode }) {
-  return <p className="rounded-xl border border-dashed border-rule px-6 py-12 text-center text-sm text-muted">{children}</p>;
+  return <p className="rounded-xl border border-dashed border-rule bg-surface/60 px-6 py-12 text-center text-sm text-muted">{children}</p>;
 }
