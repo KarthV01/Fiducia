@@ -51,7 +51,7 @@ async function fillInputs() {
   });
 }
 it("shows a landing page, not account forms, when signed out", async () => {
-  await mount(); expect(container.textContent).toContain("Great partnerships.");
+  await mount(); expect(container.textContent).toContain("Creator partnerships, agreed and paid with confidence.");
   expect(container.querySelector('a[href="/login"]')).not.toBeNull();
   expect(container.querySelector("form")).toBeNull(); expect(api.profiles).not.toHaveBeenCalled();
 });
