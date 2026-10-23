@@ -3,7 +3,8 @@ import { api } from "../../lib/api";
 import { useResource } from "../../lib/useResource";
 import { ContractTable } from "../../ui/ContractTable";
 import { KpiRow } from "../../ui/KpiRow";
-import { Banner, ButtonLink, PageHeader } from "../../ui/primitives";
+import { Banner, ButtonLink, PageHeader, SectionHeading } from "../../ui/primitives";
+import { Icon } from "../../ui/Icon";
 
 export function SponsorHomePage() {
   const { sponsorId = "" } = useParams();
@@ -26,7 +27,7 @@ export function SponsorHomePage() {
       <PageHeader
         title="Workspace overview"
         description="Your partnerships, progress, and payments. All in one place."
-        action={data.walletConnected ? <ButtonLink to={`/sponsor/${sponsorId}/contracts/new`}>New contract</ButtonLink> : <ButtonLink to="/accounts">Connect wallet</ButtonLink>}
+        action={data.walletConnected ? <ButtonLink to={`/sponsor/${sponsorId}/contracts/new`}><Icon name="plus" width="16" height="16" /> New contract</ButtonLink> : <ButtonLink to="/accounts">Connect wallet</ButtonLink>}
       />
       <KpiRow
         items={[
@@ -36,12 +37,12 @@ export function SponsorHomePage() {
           { label: "Contracts", value: String(totals.totalContracts) },
         ]}
       />
-      <p className="mt-3 text-sm text-muted">
-        {totals.byStatus.draft ?? 0} draft / {totals.byStatus.active ?? 0} active / {totals.byStatus.completed ?? 0}{" "}
-        completed
-      </p>
-      <div className="mt-8">
-        <h2 className="mb-3 text-sm font-medium text-ink">Recent contracts</h2>
+      <div className="mt-10">
+        <SectionHeading
+          title="Recent contracts"
+          description={`${totals.byStatus.draft ?? 0} draft · ${totals.byStatus.active ?? 0} active · ${totals.byStatus.completed ?? 0} completed`}
+          action={<ButtonLink variant="ghost" to={`/sponsor/${sponsorId}/contracts`}>View all <Icon name="arrow" width="14" height="14" /></ButtonLink>}
+        />
         <ContractTable
           contracts={contracts}
           counterparty="creator"

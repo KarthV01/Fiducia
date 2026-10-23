@@ -38,14 +38,14 @@ export function CreatorContractsPage() {
       <PageHeader title="Contracts" description="Sponsorship contracts assigned to this creator." />
       {actionError ? <div className="mb-4"><Banner>{actionError}</Banner></div> : null}
       {walletConnected === false ? <div className="mb-4"><Banner tone="info">Connect a verified wallet from Your accounts before accepting a contract.</Banner></div> : null}
-      <div className="mb-4 max-w-[200px]">
+      <div className="mb-4 flex items-center gap-3"><div className="w-48">
         <Select value={status} onChange={(event) => setStatus(event.target.value)}>
           <option value="all">All statuses</option>
           <option value="draft">Draft</option>
           <option value="active">Active</option>
           <option value="completed">Completed</option>
         </Select>
-      </div>
+      </div><span className="text-sm text-muted tabular-nums">{contracts.length} {contracts.length === 1 ? "contract" : "contracts"}</span></div>
       <ContractTable
         contracts={contracts}
         counterparty="sponsor"

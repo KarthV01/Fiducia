@@ -4,6 +4,7 @@ import { api } from "../../lib/api";
 import type { SocialConnection, SocialProvider } from "../../lib/types";
 import { useResource } from "../../lib/useResource";
 import { Banner, Button, PageHeader } from "../../ui/primitives";
+import { Icon } from "../../ui/Icon";
 
 const providers: Array<{ id: SocialProvider; name: string; description: string }> = [
   { id: "instagram", name: "Instagram", description: "Professional-account media, insights, and publishing." },
@@ -46,7 +47,7 @@ export function CreatorSocialConnectionsPage() {
 
   return <div className="max-w-5xl">
     <PageHeader title="Creator platforms" description="Authorize the accounts Fiducia may publish to and use as trusted contract evidence." />
-    <div className="mb-7 rounded-xl border border-accent-rule bg-accent-soft p-4 text-sm"><div className="font-medium text-ink">You stay in control.</div><p className="mt-1 text-muted">Fiducia stores encrypted OAuth tokens, never your password. Disconnecting stops new collection; existing financial evidence remains attached to its contract audit trail.</p></div>
+    <div className="mb-7 flex gap-3.5 rounded-xl border border-rule bg-surface p-4 text-sm shadow-card"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-link"><Icon name="shield" width="16" height="16" /></span><div><div className="font-medium text-ink">You stay in control.</div><p className="mt-0.5 text-muted">Fiducia stores encrypted OAuth tokens, never your password. Disconnecting stops new collection; existing financial evidence remains attached to its contract audit trail.</p></div></div>
     {actionError ? <div className="mb-5"><Banner>{actionError}</Banner></div> : null}
     {error ? <div className="mb-5"><Banner>{error}</Banner></div> : null}
     {loading ? <p className="text-sm text-muted">Loading platform connections...</p> : null}
@@ -55,11 +56,11 @@ export function CreatorSocialConnectionsPage() {
         const connections = data?.connections.filter((item) => item.provider === provider.id) ?? [];
         const active = connections.find((item) => item.status === "active");
         const latest = active ?? connections[0];
-        return <section key={provider.id} className="rounded-xl border border-rule bg-surface p-5">
-          <div className="flex items-start justify-between gap-4"><div><h2 className="font-medium text-ink">{provider.name}</h2><p className="mt-1 text-sm text-muted">{provider.description}</p></div><Status status={latest?.status ?? "missing"} /></div>
-          {latest ? <div className="mt-4 rounded-lg bg-canvas p-3 text-xs text-muted"><div className="font-medium text-ink">{label(latest)}</div><div className="mt-1">{latest.capabilities.length ? latest.capabilities.join(" · ") : "No capabilities reported"}</div><div className="mt-1">{latest.lastSyncedAt ? `Last synced ${new Date(latest.lastSyncedAt).toLocaleString()}` : "Not synchronized yet"}</div></div> : null}
-          <div className="mt-4 flex flex-wrap gap-2">
-            {!active || latest?.status === "reauthorization_required" ? <Button disabled={Boolean(busy)} onClick={() => void connect(provider.id)}>{busy === provider.id ? "Opening..." : latest ? "Reconnect" : "Connect"}</Button> : null}
+        return <section key={provider.id} className="flex flex-col rounded-xl border border-rule bg-surface p-5 shadow-card">
+          <div className="flex items-start justify-between gap-4"><div className="flex items-start gap-3.5"><span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-rule bg-canvas text-sm font-semibold text-ink">{provider.name[0]}</span><div><h2 className="font-semibold text-ink">{provider.name}</h2><p className="mt-0.5 text-sm text-muted">{provider.description}</p></div></div><Status status={latest?.status ?? "missing"} /></div>
+          {latest ? <div className="mt-4 rounded-lg border border-rule bg-canvas p-3 text-xs text-muted"><div className="font-medium text-ink">{label(latest)}</div><div className="mt-1">{latest.capabilities.length ? latest.capabilities.join(" · ") : "No capabilities reported"}</div><div className="mt-1">{latest.lastSyncedAt ? `Last synced ${new Date(latest.lastSyncedAt).toLocaleString()}` : "Not synchronized yet"}</div></div> : null}
+          <div className="mt-auto flex flex-wrap gap-2 pt-4">
+            {!active || latest?.status === "reauthorization_required" ? <Button variant="secondary" disabled={Boolean(busy)} onClick={() => void connect(provider.id)}>{busy === provider.id ? "Opening..." : latest ? "Reconnect" : "Connect"}</Button> : null}
             {active ? <Button variant="secondary" disabled={Boolean(busy)} onClick={() => void refresh(active)}>{busy === active.id ? "Refreshing..." : "Refresh access"}</Button> : null}
             {active ? <Button variant="ghost" disabled={Boolean(busy)} onClick={() => void disconnect(active)}>Disconnect</Button> : null}
           </div>
@@ -72,5 +73,5 @@ export function CreatorSocialConnectionsPage() {
 function label(connection: SocialConnection) { return connection.displayName || (connection.username ? `@${connection.username.replace(/^@/, "")}` : connection.providerAccountId); }
 function Status({ status }: { status: SocialConnection["status"] | "missing" }) {
   const text = status === "active" ? "Connected" : status === "reauthorization_required" ? "Reconnect" : status === "revoked" ? "Disconnected" : status === "missing" ? "Not connected" : status;
-  return <span className="shrink-0 rounded-full border border-rule bg-canvas px-2 py-1 text-[10px] font-medium uppercase tracking-[0.08em] text-muted">{text}</span>;
+  return <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-medium ${status === "active" ? "border-success-rule bg-success-soft text-success" : status === "reauthorization_required" ? "border-warning-rule bg-warning-soft text-warning" : "border-rule bg-canvas text-muted"}`}><span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current opacity-80" />{text}</span>;
 }

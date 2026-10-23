@@ -47,11 +47,11 @@ const controlClass =
   "w-full rounded-lg border border-rule bg-surface text-sm text-ink shadow-card outline-none transition-[border-color,box-shadow] placeholder:text-muted/80 focus:border-accent focus:ring-3 focus:ring-accent/15 disabled:opacity-60";
 
 export function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={`h-10 px-3 ${controlClass} ${className}`} {...props} />;
+  return <input className={`h-9 px-3 ${controlClass} ${className}`} {...props} />;
 }
 
 export function Select({ className = "", ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={`h-10 px-3 ${controlClass} ${className}`} {...props} />;
+  return <select className={`h-9 px-2.5 ${controlClass} ${className}`} {...props} />;
 }
 
 export function Textarea({ className = "", ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {

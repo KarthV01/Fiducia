@@ -5,7 +5,7 @@ import { ProfileAvatar as Avatar } from "../ui/ProfileAvatar";
 import { useDebouncedValue } from "../lib/useDebouncedValue";
 import { useProfileRealtime } from "../lib/useProfileRealtime";
 import type { ConnectionRequest, SocialProfile } from "../lib/types";
-import { Banner, Button, EmptyState, Input, PageHeader, Select } from "../ui/primitives";
+import { Banner, Button, buttonClass, EmptyState, Input, PageHeader, Select } from "../ui/primitives";
 
 type NetworkTab = "discover" | "connections" | "invitations";
 
@@ -94,14 +94,14 @@ export function NetworkPage() {
       <PageHeader title="My Network" description="Build professional connections with creators and sponsors." />
       {error ? <div className="mb-4"><Banner>{error}</Banner></div> : null}
       {message ? <div className="mb-4"><Banner tone="info">{message}</Banner></div> : null}
-      <div className="mb-5 flex gap-1 border-b-2 border-ink/20">
+      <div role="tablist" className="mb-6 flex gap-6 border-b border-rule">
         {(["discover", "connections", "invitations"] as const).map((item) => (
-          <button key={item} type="button" className={`border-b-2 px-4 py-2.5 text-sm font-medium capitalize ${tab === item ? "-mb-0.5 border-accent text-link" : "border-transparent text-muted hover:text-ink"}`} onClick={() => setTab(item)}>{item}</button>
+          <button key={item} type="button" role="tab" aria-selected={tab === item} className={`-mb-px border-b-2 px-0.5 pt-1 pb-3 text-sm font-medium capitalize transition-colors ${tab === item ? "border-ink text-ink" : "border-transparent text-muted hover:text-ink"}`} onClick={() => setTab(item)}>{item}</button>
         ))}
       </div>
 
       {tab === "discover" ? <>
-        <form className="mb-5 grid gap-2 md:grid-cols-[minmax(240px,1fr)_170px_170px_auto]" onSubmit={(event) => { event.preventDefault(); void load(); }}>
+        <form className="mb-6 grid gap-2 md:grid-cols-[minmax(240px,1fr)_170px_170px_auto]" onSubmit={(event) => { event.preventDefault(); void load(); }}>
           <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by name, handle, category, or industry" />
           <Select value={profileType} onChange={(event) => setProfileType(event.target.value)}><option value="all">All profiles</option><option value="creator">Creators</option><option value="sponsor">Sponsors</option></Select>
           <Select value={relationship} onChange={(event) => setRelationship(event.target.value)}><option value="all">Any relationship</option><option value="none">Not connected</option><option value="connected">Connections</option><option value="incoming">Invited you</option><option value="outgoing">Request sent</option></Select>
@@ -125,7 +125,7 @@ export function NetworkPage() {
 
 function ProfileGrid({ profiles, role, basePath, busy, noteFor, note, setNote, setNoteFor, incomingByProfileId, onConnect, onAcceptIncoming, onDeclineIncoming }: { profiles: SocialProfile[]; role: "sponsor" | "creator"; basePath: string; busy: boolean; noteFor: string | null; note: string; setNote: (value: string) => void; setNoteFor: (value: string | null) => void; incomingByProfileId: Record<string, ConnectionRequest>; onConnect: (profile: SocialProfile) => void; onAcceptIncoming: (item: ConnectionRequest) => void; onDeclineIncoming: (item: ConnectionRequest) => void }) {
   if (!profiles.length) return <EmptyState>No profiles match these filters.</EmptyState>;
-  return <div className="grid gap-3 lg:grid-cols-2">{profiles.map((profile) => <article key={profile.id} className="rounded-[8px] border-2 border-ink/20 bg-surface p-4">
+  return <div className="grid gap-3 lg:grid-cols-2">{profiles.map((profile) => <article key={profile.id} className="rounded-xl border border-rule bg-surface p-5 shadow-card">
     <ProfileHeading profile={profile} />
     <div className="mt-4 flex flex-wrap items-center gap-2">
       {profile.relationship === "none" ? <Button type="button" variant="secondary" disabled={busy} onClick={() => setNoteFor(noteFor === profile.id ? null : profile.id)}>Connect</Button> : null}
@@ -137,12 +137,12 @@ function ProfileGrid({ profiles, role, basePath, busy, noteFor, note, setNote, s
       </> : null}
       {profile.relationship === "outgoing" ? <span className="text-xs font-medium text-muted">Request pending</span> : null}
     </div>
-    {noteFor === profile.id ? <div className="mt-3 border-t border-rule pt-3"><textarea className="min-h-20 w-full rounded-[6px] border-2 border-ink/25 bg-surface px-3 py-2 text-sm outline-none focus:border-accent" maxLength={300} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Add a personal note (optional)" /><div className="mt-2 flex items-center justify-between"><span className="text-xs text-muted">{note.length}/300</span><Button type="button" disabled={busy} onClick={() => onConnect(profile)}>Send invitation</Button></div></div> : null}
+    {noteFor === profile.id ? <div className="mt-3 border-t border-rule pt-3"><textarea className="min-h-20 w-full rounded-lg border border-rule bg-surface px-3 py-2.5 text-sm shadow-card outline-none focus:border-accent focus:ring-3 focus:ring-accent/15" maxLength={300} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Add a personal note (optional)" /><div className="mt-2 flex items-center justify-between"><span className="text-xs text-muted">{note.length}/300</span><Button type="button" disabled={busy} onClick={() => onConnect(profile)}>Send invitation</Button></div></div> : null}
   </article>)}</div>;
 }
 
 function ConnectionCard({ item, role, basePath, busy, onAccept, onDecline, onWithdraw, onRemove }: { item: ConnectionRequest; role: "sponsor" | "creator"; basePath: string; busy: boolean; onAccept?: () => void; onDecline?: () => void; onWithdraw?: () => void; onRemove?: () => void }) {
-  return <article className="rounded-[8px] border-2 border-ink/20 bg-surface p-4"><ProfileHeading profile={item.profile} />{item.note ? <p className="mt-3 rounded-[6px] bg-canvas p-3 text-sm text-muted">“{item.note}”</p> : null}<div className="mt-4 flex flex-wrap gap-2">{onAccept ? <Button type="button" disabled={busy} onClick={onAccept}>Accept</Button> : null}{onDecline ? <Button type="button" variant="ghost" disabled={busy} onClick={onDecline}>Decline</Button> : null}{onWithdraw ? <Button type="button" variant="secondary" disabled={busy} onClick={onWithdraw}>Withdraw</Button> : null}{onRemove ? <><LinkButton to={`${basePath}/messages?with=${encodeURIComponent(item.profile.id)}`}>Message</LinkButton>{role === "sponsor" && item.profile.profileType === "creator" ? item.profile.walletReady ? <LinkButton to={`${basePath}/contracts/new?creatorProfileId=${item.profile.profileId}`} secondary>Draft contract</LinkButton> : <Button type="button" variant="secondary" disabled>Wallet required</Button> : null}<Button type="button" variant="ghost" disabled={busy} onClick={onRemove}>Remove</Button></> : null}</div></article>;
+  return <article className="rounded-xl border border-rule bg-surface p-5 shadow-card"><ProfileHeading profile={item.profile} />{item.note ? <p className="mt-3 rounded-lg border border-rule bg-canvas p-3 text-sm text-muted">“{item.note}”</p> : null}<div className="mt-4 flex flex-wrap gap-2">{onAccept ? <Button type="button" disabled={busy} onClick={onAccept}>Accept</Button> : null}{onDecline ? <Button type="button" variant="ghost" disabled={busy} onClick={onDecline}>Decline</Button> : null}{onWithdraw ? <Button type="button" variant="secondary" disabled={busy} onClick={onWithdraw}>Withdraw</Button> : null}{onRemove ? <><LinkButton to={`${basePath}/messages?with=${encodeURIComponent(item.profile.id)}`}>Message</LinkButton>{role === "sponsor" && item.profile.profileType === "creator" ? item.profile.walletReady ? <LinkButton to={`${basePath}/contracts/new?creatorProfileId=${item.profile.profileId}`} secondary>Draft contract</LinkButton> : <Button type="button" variant="secondary" disabled>Wallet required</Button> : null}<Button type="button" variant="ghost" disabled={busy} onClick={onRemove}>Remove</Button></> : null}</div></article>;
 }
 
 function ProfileHeading({ profile }: { profile: SocialProfile }) {
@@ -150,9 +150,9 @@ function ProfileHeading({ profile }: { profile: SocialProfile }) {
 }
 
 function LinkButton({ to, secondary = false, children }: { to: string; secondary?: boolean; children: string }) {
-  return <Link to={to} className={`inline-flex h-9 items-center rounded-[6px] px-3.5 text-sm font-medium ${secondary ? "border-2 border-ink/30 bg-surface text-ink" : "bg-accent text-white"}`}>{children}</Link>;
+  return <Link to={to} className={buttonClass(secondary ? "secondary" : "primary")}>{children}</Link>;
 }
 
 function RequestSection({ title, empty, items, render }: { title: string; empty: string; items: ConnectionRequest[]; render: (item: ConnectionRequest) => ReactNode }) {
-  return <section><h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.04em] text-muted">{title} <span className="ml-1 rounded-full bg-accent-soft px-2 py-0.5 text-link">{items.length}</span></h2><div className="space-y-3">{items.length ? items.map(render) : <p className="rounded-[8px] border-2 border-ink/15 bg-surface p-5 text-sm text-muted">{empty}</p>}</div></section>;
+  return <section><h2 className="mb-3 flex items-center gap-2 text-[15px] font-semibold text-ink">{title} <span className="rounded-md bg-ink/[0.06] px-1.5 py-0.5 text-xs font-medium text-muted tabular-nums">{items.length}</span></h2><div className="space-y-3">{items.length ? items.map(render) : <p className="rounded-xl border border-dashed border-rule bg-surface/60 p-6 text-center text-sm text-muted">{empty}</p>}</div></section>;
 }

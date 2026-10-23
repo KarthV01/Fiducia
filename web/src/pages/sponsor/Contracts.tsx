@@ -4,6 +4,7 @@ import { api } from "../../lib/api";
 import { useResource } from "../../lib/useResource";
 import { ContractTable } from "../../ui/ContractTable";
 import { Banner, ButtonLink, PageHeader, Select } from "../../ui/primitives";
+import { Icon } from "../../ui/Icon";
 
 export function SponsorContractsPage() {
   const { sponsorId = "" } = useParams();
@@ -35,16 +36,16 @@ export function SponsorContractsPage() {
       <PageHeader
         title="Contracts"
         description="All sponsorship agreements for this sponsor."
-        action={<ButtonLink to={`/sponsor/${sponsorId}/contracts/new`}>New contract</ButtonLink>}
+        action={<ButtonLink to={`/sponsor/${sponsorId}/contracts/new`}><Icon name="plus" width="16" height="16" /> New contract</ButtonLink>}
       />
-      <div className="mb-4 max-w-[200px]">
+      <div className="mb-4 flex items-center gap-3"><div className="w-48">
         <Select value={status} onChange={(event) => setStatus(event.target.value)}>
           <option value="all">All statuses</option>
           <option value="draft">Draft</option>
           <option value="active">Active</option>
           <option value="completed">Completed</option>
         </Select>
-      </div>
+      </div><span className="text-sm text-muted tabular-nums">{contracts.length} {contracts.length === 1 ? "contract" : "contracts"}</span></div>
       <ContractTable
         contracts={contracts}
         counterparty="creator"

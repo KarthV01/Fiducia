@@ -113,8 +113,8 @@ export function AppShell({
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b border-rule bg-canvas/85 px-5 backdrop-blur-md md:h-16 md:px-8 xl:px-10">
-          <div className="flex min-w-0 items-center gap-3">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-end sm:justify-between gap-4 border-b border-rule bg-canvas/85 px-5 backdrop-blur-md md:h-16 md:px-8 xl:px-10">
+          <div className="hidden min-w-0 items-center gap-3 sm:flex">
             <span aria-hidden="true" className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-full border border-rule bg-surface text-xs font-semibold text-ink sm:flex">{initials(accountLabel)}</span>
             <div className="min-w-0 leading-tight">
               <div className="truncate text-sm font-semibold text-ink">{accountLabel}</div>

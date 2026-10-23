@@ -5,7 +5,7 @@ import { formatUsdc } from "../../lib/money";
 import type { EnrichedAgreement, Payout } from "../../lib/types";
 import { useResource } from "../../lib/useResource";
 import { KpiRow } from "../../ui/KpiRow";
-import { Banner, CopyText, EmptyState, PageHeader, StatusPill } from "../../ui/primitives";
+import { Banner, CopyText, EmptyState, PageHeader, SectionHeading, StatusPill } from "../../ui/primitives";
 
 type PayoutRow = {
   payout: Payout;
@@ -51,13 +51,13 @@ export function CreatorEarningsPage() {
         ]}
       />
 
-      <section className="mt-8">
-        <h2 className="mb-3 text-sm font-medium text-ink">Pending opportunities</h2>
+      <section className="mt-10">
+        <SectionHeading title="Pending payouts" description="Payouts that release once their condition is met." />
         <PayoutTable rows={pendingRows} emptyLabel="No pending payouts." />
       </section>
 
-      <section className="mt-8">
-        <h2 className="mb-3 text-sm font-medium text-ink">Payout history</h2>
+      <section className="mt-10">
+        <SectionHeading title="Payout history" />
         <PayoutTable rows={releasedRows} emptyLabel="No released payouts yet." />
       </section>
     </div>
@@ -70,10 +70,10 @@ function PayoutTable({ rows, emptyLabel }: { rows: PayoutRow[]; emptyLabel: stri
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-rule bg-surface">
-      <table className="w-full text-left text-sm">
+    <div className="overflow-x-auto rounded-xl border border-rule bg-surface shadow-card">
+      <table className="w-full min-w-[720px] text-left text-sm">
         <thead>
-          <tr className="border-b border-rule text-[11px] uppercase tracking-[0.06em] text-muted">
+          <tr className="border-b border-rule bg-canvas/60 text-xs text-muted">
             <th className="px-4 py-2.5 font-medium">Payout</th>
             <th className="px-4 py-2.5 font-medium">Contract</th>
             <th className="px-4 py-2.5 font-medium">Sponsor</th>
@@ -84,14 +84,14 @@ function PayoutTable({ rows, emptyLabel }: { rows: PayoutRow[]; emptyLabel: stri
         </thead>
         <tbody>
           {rows.map(({ payout, contract }) => (
-            <tr key={`${contract.id}-${payout.id}`} className="border-b border-rule last:border-b-0">
+            <tr key={`${contract.id}-${payout.id}`} className="border-b border-rule transition-colors last:border-b-0 hover:bg-canvas/60">
               <td className="px-4 py-3">
                 <div className="font-medium text-ink">{payout.label}</div>
                 <div className="text-xs capitalize text-muted">{payout.kind}</div>
               </td>
               <td className="px-4 py-3 text-muted">{contract.title ?? "Untitled"}</td>
               <td className="px-4 py-3 text-muted">{partyName(contract.sponsorProfile)}</td>
-              <td className="px-4 py-3 tabular-nums">{formatUsdc(payout.amount)}</td>
+              <td className="px-4 py-3 font-medium tabular-nums">{formatUsdc(payout.amount)}</td>
               <td className="px-4 py-3">
                 <StatusPill status={payout.status} />
                 {payout.releasedAt ? <div className="mt-1 text-xs text-muted">{formatDate(payout.releasedAt)}</div> : null}
@@ -111,7 +111,7 @@ function payoutDetail(payout: Payout) {
   }
 
   if (payout.condition) {
-    return `${payout.condition.metric.key} >= ${formatNumber(payout.condition.threshold)}`;
+    return `${payout.condition.metric.key} ≥ ${formatNumber(payout.condition.threshold)}`;
   }
 
   return "Delivery approval";

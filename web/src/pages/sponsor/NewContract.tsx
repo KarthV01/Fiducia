@@ -173,8 +173,8 @@ export function NewContractPage() {
         </div>
       ) : null}
       <form className="space-y-6" onSubmit={onSubmit}>
-        <section className="rounded-xl border border-rule bg-surface p-4">
-          <h2 className="text-sm font-medium text-ink">
+        <section className="rounded-xl border border-rule bg-surface shadow-card p-4">
+          <h2 className="text-[15px] font-semibold text-ink">
             Creator account
             <RequiredMark />
           </h2>
@@ -209,14 +209,14 @@ export function NewContractPage() {
                   <button
                     key={creator.id}
                     type="button"
-                    className={`rounded-[6px] border-2 px-3 py-2 text-left transition-colors ${
-                      selected ? "border-accent bg-accent-soft" : "border-ink/15 hover:border-ink/35 hover:bg-accent-soft"
+                    className={`rounded-lg border px-3.5 py-2.5 text-left shadow-card transition-colors ${
+                      selected ? "border-accent bg-accent-soft ring-3 ring-accent/10" : "border-rule bg-surface hover:border-ink/20"
                     }`}
                     onClick={() => setCreatorProfileId(creator.profileId)}
                   >
                     <div className="text-sm font-semibold text-ink">{creator.displayName}</div>
                     <div className="text-xs text-muted">
-                      {creator.handle} - {creator.descriptor}
+                      {creator.handle} · {creator.descriptor}
                     </div>
                   </button>
                 );
@@ -231,15 +231,15 @@ export function NewContractPage() {
         <Field label="Deliverable" required>
           <Textarea rows={4} value={deliverable} onChange={(event) => setDeliverable(event.target.value)} required />
         </Field>
-        <section className="rounded-xl border border-rule bg-surface p-4">
-          <h2 className="text-sm font-medium text-ink">Publishing platforms <RequiredMark /></h2>
+        <section className="rounded-xl border border-rule bg-surface shadow-card p-4">
+          <h2 className="text-[15px] font-semibold text-ink">Publishing platforms <RequiredMark /></h2>
           <p className="mt-1 text-sm text-muted">Each selected platform becomes an independently published, measured, and paid post.</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {(["instagram", "x", "tiktok", "youtube"] as SocialProvider[]).map((provider) => <label key={provider} className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 ${platforms.includes(provider) ? "border-accent-rule bg-accent-soft" : "border-rule"}`}><input type="checkbox" checked={platforms.includes(provider)} onChange={(event) => setPlatforms((current) => event.target.checked ? [...current, provider] : current.filter((item) => item !== provider))} className="accent-accent" /><span className="text-sm font-medium text-ink">{platformLabel(provider)}</span></label>)}
           </div>
         </section>
-        <section className="space-y-4 rounded-xl border border-rule bg-surface p-4">
-          <h2 className="text-sm font-medium text-ink">Approval criteria</h2>
+        <section className="space-y-4 rounded-xl border border-rule bg-surface shadow-card p-4">
+          <h2 className="text-[15px] font-semibold text-ink">Approval criteria</h2>
           <Field label="Promotional concept requirements" required><Textarea rows={3} value={promoRequirements} onChange={(event) => setPromoRequirements(event.target.value)} required /></Field>
           <Field label="Private final-cut requirements" required><Textarea rows={3} value={finalCutRequirements} onChange={(event) => setFinalCutRequirements(event.target.value)} required /></Field>
           <Field label="Publication requirements" required><Textarea rows={3} value={publicationRequirements} onChange={(event) => setPublicationRequirements(event.target.value)} required /></Field>
@@ -260,9 +260,9 @@ export function NewContractPage() {
           </Field>
         </div>
 
-        <section className="rounded-xl border border-rule bg-surface p-4">
+        <section className="rounded-xl border border-rule bg-surface shadow-card p-4">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-medium text-ink">View milestones</h2>
+            <h2 className="text-[15px] font-semibold text-ink">View milestones</h2>
             <Button
               type="button"
               variant="ghost"
@@ -272,7 +272,7 @@ export function NewContractPage() {
             </Button>
           </div>
           <div className="space-y-2">
-            <div className="grid grid-cols-[1fr_1fr_auto] gap-2 text-[11px] font-medium uppercase tracking-[0.06em] text-muted">
+            <div className="grid grid-cols-[1fr_1fr_auto] gap-2 text-xs font-medium text-muted">
               <span>Views</span>
               <span>Bonus USDC</span>
               <span className="w-[72px]">Action</span>
@@ -307,8 +307,8 @@ export function NewContractPage() {
           </div>
         </section>
 
-        {platforms.includes("youtube") ? <section className="rounded-xl border border-rule bg-surface p-4">
-          <h2 className="text-sm font-medium text-ink">Metered view earnings</h2>
+        {platforms.includes("youtube") ? <section className="rounded-xl border border-rule bg-surface shadow-card p-4">
+          <h2 className="text-[15px] font-semibold text-ink">Metered view earnings</h2>
           <p className="mt-1 text-sm text-muted">Optional capped payment per 1,000 verified views above a starting point.</p>
           <div className="mt-3 grid gap-3 md:grid-cols-3">
             <Field label="Starts after views"><Input value={meteredStart} onChange={(event) => setMeteredStart(event.target.value)} /></Field>
@@ -317,9 +317,9 @@ export function NewContractPage() {
           </div>
         </section> : null}
 
-        <section className="rounded-xl border border-rule bg-surface p-4">
+        <section className="rounded-xl border border-rule bg-surface shadow-card p-4">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-medium text-ink">Other metric bonuses</h2>
+            <h2 className="text-[15px] font-semibold text-ink">Other metric bonuses</h2>
             <Button
               type="button"
               variant="ghost"
@@ -395,7 +395,7 @@ export function NewContractPage() {
           </div>
         </section>
 
-        <div className="flex items-center justify-between rounded-xl border border-rule bg-surface px-4 py-3 text-sm">
+        <div className="flex items-center justify-between rounded-xl border border-rule bg-surface shadow-card px-4 py-3 text-sm">
           <div>
             <div className="text-muted">Defined payouts / cap</div>
             <div className="tabular-nums text-ink">

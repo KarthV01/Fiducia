@@ -4,7 +4,7 @@ import { api } from "../../lib/api";
 import { useResource } from "../../lib/useResource";
 import { ContractTable } from "../../ui/ContractTable";
 import { KpiRow } from "../../ui/KpiRow";
-import { Banner, Button, ButtonLink, PageHeader, StatusPill } from "../../ui/primitives";
+import { Banner, Button, ButtonLink, PageHeader, SectionHeading, StatusPill } from "../../ui/primitives";
 import { Icon } from "../../ui/Icon";
 import { formatDate, partyName } from "../../lib/format";
 import { formatUsdc } from "../../lib/money";
@@ -51,7 +51,7 @@ export function CreatorHomePage() {
           <Banner>{actionError}</Banner>
         </div>
       ) : null}
-      {!data.creator.walletAddress ? <div className="mb-7 flex flex-wrap items-center justify-between gap-5 rounded-xl border border-accent-rule bg-accent-soft p-5"><div className="flex items-start gap-4"><span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface text-link"><Icon name="wallet" /></span><div><h2 className="font-medium text-ink">Connect a payout wallet</h2><p className="mt-1 max-w-2xl text-sm text-muted">Your profile is ready for networking and messages. Verify a browser or mobile wallet before entering a new contract or receiving future payouts.</p></div></div><ButtonLink to={`/creator/${creatorId}/wallets`}>Set up wallet</ButtonLink></div> : null}
+      {!data.creator.walletAddress ? <div className="mb-8 flex flex-wrap items-center justify-between gap-5 rounded-xl border border-rule bg-surface p-5 shadow-card"><div className="flex items-start gap-3.5"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-accent-rule bg-accent-soft text-link"><Icon name="wallet" width="17" height="17" /></span><div><h2 className="font-semibold text-ink">Connect a payout wallet</h2><p className="mt-0.5 max-w-2xl text-sm text-muted">Your profile is ready for networking and messages. Verify a browser or mobile wallet before entering a new contract or receiving future payouts.</p></div></div><ButtonLink to={`/creator/${creatorId}/wallets`}>Set up wallet</ButtonLink></div> : null}
       <KpiRow
         items={[
           { label: "Earned", value: data.totals.releasedPayoutAmount, money: true },
@@ -61,18 +61,18 @@ export function CreatorHomePage() {
         ]}
       />
       {data.pendingInvites.length > 0 ? (
-        <div className="mt-8">
-          <h2 className="mb-3 text-sm font-medium text-ink">Pending invitations</h2>
+        <div className="mt-10">
+          <SectionHeading title="Pending invitations" description="Sponsors waiting on your response." />
           <div className="grid gap-3">
             {data.pendingInvites.map((invite) => (
-              <div key={invite.id} className="rounded-xl border border-rule bg-surface p-4">
+              <div key={invite.id} className="rounded-xl border border-rule bg-surface p-5 shadow-card">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <div className="text-sm font-semibold text-ink">
                       {invite.agreement.title ?? "Untitled contract"}
                     </div>
                     <div className="mt-1 text-sm text-muted">
-                      {partyName(invite.sponsorProfile)} - {formatUsdc(invite.agreement.totalCapAmount)} cap - due{" "}
+                      {partyName(invite.sponsorProfile)} · {formatUsdc(invite.agreement.totalCapAmount)} cap · due{" "}
                       {formatDate(invite.agreement.deadline)}
                     </div>
                     <div className="mt-2">
@@ -92,8 +92,8 @@ export function CreatorHomePage() {
           </div>
         </div>
       ) : null}
-      <div className="mt-8">
-        <h2 className="mb-3 text-sm font-medium text-ink">Current contracts</h2>
+      <div className="mt-10">
+        <SectionHeading title="Current contracts" />
         <ContractTable
           contracts={active}
           counterparty="sponsor"
@@ -101,8 +101,8 @@ export function CreatorHomePage() {
           hrefFor={(contract) => `/creator/${creatorId}/contracts/${contract.id}`}
         />
       </div>
-      <div className="mt-8">
-        <h2 className="mb-3 text-sm font-medium text-ink">Upcoming deadlines</h2>
+      <div className="mt-10">
+        <SectionHeading title="Upcoming deadlines" description="Open contracts, soonest first." />
         <ContractTable
           contracts={upcoming}
           counterparty="sponsor"

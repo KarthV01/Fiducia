@@ -3,7 +3,7 @@ import { Icon } from "./Icon";
 
 export function MetaMaskOnboarding({ open, onClose, onRetry }: { open: boolean; onClose: () => void; onRetry: () => void }) {
   if (!open) return null;
-  return <div role="presentation" className="fixed inset-0 z-[80] flex items-center justify-center bg-black/65 p-5" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+  return <div role="presentation" className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm p-5" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <div role="dialog" aria-modal="true" aria-labelledby="metamask-title" className="w-full max-w-md rounded-2xl border border-rule bg-surface p-6 shadow-floating">
       <div className="flex items-start justify-between gap-4"><span className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent-soft text-link"><Icon name="wallet" width="23" height="23" /></span><button type="button" aria-label="Close" onClick={onClose} className="rounded-lg p-2 text-muted hover:bg-accent-soft hover:text-ink"><Icon name="close" /></button></div>
       <h2 id="metamask-title" className="mt-5 text-xl font-semibold tracking-[-0.03em]">Set up MetaMask first</h2>
